@@ -3,6 +3,89 @@
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
+/*
+| StyleHub design language
+|
+| Dark, near-black green canvas with a lime accent, pill-shaped controls and
+| generously rounded cards — see docs/mockups. Defined once here and reused by
+| every screen; prefer these tokens over raw hex values.
+*/
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Surfaces, darkest to lightest. */
+    --color-canvas: #080d07;
+    --color-surface: #111a0f;
+    --color-surface-raised: #1a2617;
+    --color-hairline: #26331f;
+
+    /* Lime accent, and the near-black ink that sits legibly on top of it. */
+    --color-accent: #c6f432;
+    --color-accent-strong: #b2e01e;
+    --color-accent-soft: #1e2a10;
+    --color-accent-ink: #0b1005;
+
+    /* Text. */
+    --color-content: #f2f5ef;
+    --color-content-muted: #97a58d;
+    --color-content-subtle: #5f6d57;
+
+    /* Appointment status colours. */
+    --color-danger: #ff6b5e;
+    --color-warning: #f5c451;
+
+    /* Cards in the mockups are generously rounded; controls are full pills. */
+    --radius-card: 1.5rem;
+    --radius-control: 9999px;
+}
+
+/*
+| The native shell exposes device safe areas as --inset-* custom properties.
+| Screens sit under the EDGE bottom-nav, so .screen handles that padding once
+| instead of every view repeating the maths.
+*/
+@layer components {
+    .screen {
+        min-height: 100dvh;
+        padding-top: calc(var(--inset-top, 0px) + 1.5rem);
+        padding-bottom: calc(var(--inset-bottom, 0px) + 2rem);
+        padding-left: max(var(--inset-left, 0px), 1.25rem);
+        padding-right: max(var(--inset-right, 0px), 1.25rem);
+    }
+
+    .card {
+        border-radius: var(--radius-card);
+        background-color: var(--color-surface);
+        border: 1px solid var(--color-hairline);
+    }
+
+    .btn-accent {
+        display: block;
+        width: 100%;
+        border-radius: var(--radius-control);
+        background-color: var(--color-accent);
+        color: var(--color-accent-ink);
+        font-weight: 600;
+        text-align: center;
+        padding: 0.9rem 1.5rem;
+    }
+
+    .btn-accent:active {
+        background-color: var(--color-accent-strong);
+    }
+
+    .chip {
+        display: inline-block;
+        border-radius: var(--radius-control);
+        background-color: var(--color-surface-raised);
+        color: var(--color-content-muted);
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .chip-active {
+        background-color: var(--color-accent);
+        color: var(--color-accent-ink);
+        font-weight: 600;
+    }
 }

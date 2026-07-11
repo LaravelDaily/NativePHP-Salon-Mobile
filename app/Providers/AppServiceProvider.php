@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\ApiClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(ApiClient::class, function (): ApiClient {
+            $host = config('services.salon_api.host');
+
+            return new ApiClient(
+                baseUrl: (string) config('services.salon_api.url'),
+                hostHeader: is_string($host) && $host !== '' ? $host : null,
+                timeout: (int) config('services.salon_api.timeout'),
+            );
+        });
     }
 
     /**

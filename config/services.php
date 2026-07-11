@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    /*
+    | The salon-api backend. On the Android emulator the host machine is at
+    | 10.0.2.2 and Herd's .test domains do not resolve, so `url` points at the
+    | host directly and `host` carries the Host header Herd routes on.
+    */
+    'salon_api' => [
+        'url' => env('SALON_API_URL', 'http://salon-api.test'),
+        'host' => env('SALON_API_HOST'),
+        'timeout' => (int) env('SALON_API_TIMEOUT', 10),
+    ],
+
 ];
