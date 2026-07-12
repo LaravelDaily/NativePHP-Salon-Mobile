@@ -14,7 +14,10 @@
         "laravel/tinker": "^3.0",
         "livewire/blaze": "^1.0",
         "livewire/livewire": "^4.1",
-        "nativephp/mobile": "^3.3"
+        "nativephp/mobile": "^3.3",
+        "nativephp/mobile-device": "^1.0",
+        "nativephp/mobile-dialog": "^1.0",
+        "nativephp/mobile-secure-storage": "^1.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
