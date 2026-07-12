@@ -7,6 +7,31 @@ The customer-facing StyleHub app, built with [NativePHP Mobile](https://nativeph
 - PHP 8.3+, Composer, Node 20+
 - Android Studio with an emulator (API 33+) — Android is the primary target
 - The `salon-api` project served by Herd
+- `nativephp/mobile-secure-storage` (paid plugin) — stores the auth token in the device keystore
+
+## Authentication
+
+The customer signs in with an SMS one-time code, or with email and password. Either way the API returns a Sanctum token, and **that token is the whole of the client-side auth state** — there is no local user table. `CustomerAuth` fetches the customer from `GET /me`, and a token the API rejects is discarded on the spot, so a revoked token cannot leave the app half-signed-in.
+
+Where that token lives depends on where the app is running, behind the `TokenStore` contract:
+
+| Context | Store | Backing |
+|---|---|---|
+| Device | `SecureStorageTokenStore` | iOS Keychain / Android EncryptedSharedPreferences |
+| Browser, tests | `SessionTokenStore` | The session |
+
+The device store needs the paid plugin:
+
+```bash
+composer require nativephp/mobile-secure-storage
+php artisan native:plugin:register nativephp/mobile-secure-storage
+```
+
+> **A trap worth knowing about.** Do not decide "am I on a device?" with `function_exists('nativephp_call')`. NativePHP *also* defines that function on your dev machine, as a PHP fallback that relays calls to a connected device — so it is always true, and the app would reach for a keystore that isn't there. That failure is silent: `SecureStorage::get()` just returns `null` and nobody can sign in. The reliable test is the function's **origin** — on a device it comes from NativePHP's C extension (`ReflectionFunction::isInternal()`), everywhere else it is userland PHP. See `AppServiceProvider::runningOnDevice()`.
+
+### Reading OTP codes in development
+
+There is no SMS gateway locally. The API's `log` SMS driver writes the code to `salon-api`'s log (`php artisan pail`), and because `OTP_EXPOSE_CODE` defaults to the API's debug flag, the code also comes back in the API response — the OTP screen shows it inline. Never enable that in production: it would hand any caller a login for any phone number.
 
 ## Setup
 

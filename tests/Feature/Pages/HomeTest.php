@@ -76,10 +76,11 @@ it('recovers when the retry succeeds', function () {
         ->assertSee('StyleHub Brooklyn');
 });
 
-it('is reachable at the home route', function () {
+it('is reachable at the home route by a signed-in customer', function () {
     Http::fake(['*' => Http::response(salonPayload())]);
 
-    $this->get(route('home'))
+    $this->withSession(customerSession())
+        ->get(route('home'))
         ->assertOk()
         ->assertSeeLivewire('pages::home');
 });

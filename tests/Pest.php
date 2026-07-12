@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\SessionTokenStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -20,31 +21,30 @@ pest()->extend(TestCase::class)
 
 /*
 |--------------------------------------------------------------------------
-| Expectations
-|--------------------------------------------------------------------------
-|
-| When you're writing tests, you often need to check that values meet certain conditions. The
-| "expect()" function gives you access to a set of "expectations" methods that you can use
-| to assert different things. Of course, you may extend the Expectation API at any time.
-|
-*/
-
-expect()->extend('toBeOne', function () {
-    return $this->toBe(1);
-});
-
-/*
-|--------------------------------------------------------------------------
 | Functions
 |--------------------------------------------------------------------------
-|
-| While Pest is very powerful out-of-the-box, you may have some testing code specific to your
-| project that you don't want to repeat in every file. Here you can also expose helpers as
-| global functions to help you to reduce the number of lines of code in your test files.
-|
 */
 
-function something()
+/**
+ * A session holding an auth token, for tests that make real HTTP requests
+ * through the RequireCustomer middleware.
+ *
+ * Outside the native shell the token lives in the session, and a test HTTP
+ * request starts a fresh one — so it has to be seeded via `withSession()`
+ * rather than written beforehand.
+ *
+ * @return array<string, string>
+ */
+function customerSession(string $token = 'test-token'): array
 {
-    // ..
+    return [SessionTokenStore::KEY => $token];
+}
+
+/**
+ * Sign a customer in for Livewire component tests, which share the current
+ * session rather than starting a new request.
+ */
+function signIn(string $token = 'test-token'): void
+{
+    session()->put(SessionTokenStore::KEY, $token);
 }

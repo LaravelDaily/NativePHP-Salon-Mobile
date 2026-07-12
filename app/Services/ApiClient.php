@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\TokenStore;
 use App\Exceptions\ApiException;
 use Closure;
 use Illuminate\Http\Client\ConnectionException;
@@ -29,16 +30,27 @@ class ApiClient
         private readonly string $baseUrl,
         private readonly ?string $hostHeader,
         private readonly int $timeout,
+        private readonly ?TokenStore $tokens = null,
     ) {}
 
     /**
-     * Authenticate subsequent requests with a Sanctum token (see Phase 3).
+     * Authenticate subsequent requests with an explicit token, overriding the
+     * stored one. Used during sign-in, before the token has been persisted.
      */
     public function withToken(?string $token): self
     {
         $this->token = $token;
 
         return $this;
+    }
+
+    /**
+     * The token to send: an explicitly-set one, otherwise whatever the customer
+     * is signed in with.
+     */
+    private function currentToken(): ?string
+    {
+        return $this->token ?? $this->tokens?->get();
     }
 
     /**
@@ -123,8 +135,10 @@ class ApiClient
             $request->withHeaders(['Host' => $this->hostHeader]);
         }
 
-        if ($this->token !== null) {
-            $request->withToken($this->token);
+        $token = $this->currentToken();
+
+        if ($token !== null) {
+            $request->withToken($token);
         }
 
         return $request;

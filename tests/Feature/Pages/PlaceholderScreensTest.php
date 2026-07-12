@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 it('renders the appointments screen', function () {
@@ -25,7 +26,10 @@ it('renders the profile screen with the menu from the mockups', function () {
 });
 
 it('serves each tab route with its component', function (string $route, string $component) {
-    $this->get(route($route))
+    Http::fake(['*/api/v1/me' => Http::response(['data' => ['id' => 1, 'name' => 'John Doe']])]);
+
+    $this->withSession(customerSession())
+        ->get(route($route))
         ->assertOk()
         ->assertSeeLivewire($component);
 })->with([
