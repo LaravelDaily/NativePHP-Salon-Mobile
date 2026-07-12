@@ -21,6 +21,7 @@ Route::middleware(RequireCustomer::class)->group(function (): void {
         ->name('appointments.reschedule');
     Route::livewire('/profile', 'pages::profile')->name('profile');
     Route::livewire('/profile/stylists', 'pages::stylists')->name('profile.stylists');
+    Route::livewire('/settings', 'pages::settings')->name('settings');
     Route::livewire('/appointments/{appointment}/feedback', 'pages::feedback')
         ->name('appointments.feedback');
 });
