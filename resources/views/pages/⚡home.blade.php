@@ -9,11 +9,15 @@ new class extends Component
     /** @var array<string, mixed>|null */
     public ?array $salon = null;
 
+    /** The soonest appointment still to come, if any. */
+    public ?array $next = null;
+
     public ?string $error = null;
 
     public function mount(ApiClient $api): void
     {
         $this->loadSalon($api);
+        $this->loadNextAppointment($api);
     }
 
     public function loadSalon(ApiClient $api): void
@@ -27,6 +31,23 @@ new class extends Component
         } catch (ApiException $exception) {
             $this->salon = null;
             $this->error = $exception->getMessage();
+        }
+    }
+
+    /**
+     * The API returns upcoming appointments soonest first, so the next one is
+     * simply the first. A failure here is not worth shouting about: the customer
+     * came to the home screen, not to be told the network is unhappy.
+     */
+    public function loadNextAppointment(ApiClient $api): void
+    {
+        try {
+            /** @var array<int, array<string, mixed>> $upcoming */
+            $upcoming = $api->get('appointments', ['filter' => 'upcoming', 'per_page' => 1])['data'] ?? [];
+
+            $this->next = $upcoming[0] ?? null;
+        } catch (ApiException) {
+            $this->next = null;
         }
     }
 };
@@ -59,9 +80,20 @@ new class extends Component
 
         <a href="{{ route('book') }}" wire:navigate class="btn-accent mt-6">Book an appointment</a>
 
-        <div class="card mt-6 p-6">
+        <div class="card mt-6 p-6" data-testid="next-appointment">
             <p class="text-xs uppercase tracking-widest text-content-subtle">Next appointment</p>
-            <p class="mt-2 text-content-muted">Your next visit will show up here.</p>
+
+            @if ($next)
+                <p class="mt-2 text-lg font-semibold">{{ $next['service']['name'] }}</p>
+                <p class="text-sm text-content-muted">with {{ $next['specialist']['name'] }}</p>
+                <p class="mt-2">{{ $next['date_label'] }} · {{ $next['time_label'] }}</p>
+
+                <a href="{{ route('appointments') }}" wire:navigate class="mt-4 inline-block text-sm text-accent">
+                    View appointments
+                </a>
+            @else
+                <p class="mt-2 text-content-muted">Your next visit will show up here.</p>
+            @endif
         </div>
     @endif
 </div>

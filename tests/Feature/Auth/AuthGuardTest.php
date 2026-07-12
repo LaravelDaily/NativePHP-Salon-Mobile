@@ -11,7 +11,12 @@ it('lets a signed-out customer reach the auth screens', function (string $route)
 })->with(['auth.welcome', 'auth.register', 'auth.otp']);
 
 it('lets a signed-in customer through to the app', function () {
-    Http::fake(['*/api/v1/salon' => Http::response(['data' => ['name' => 'StyleHub']])]);
+    Http::fake([
+        '*/api/v1/salon' => Http::response(['data' => ['name' => 'StyleHub']]),
+        // Home also asks for the next appointment; an unfaked URL would be sent
+        // for real and hang the suite.
+        '*' => Http::response(['data' => []]),
+    ]);
 
     $this->withSession(customerSession())->get(route('home'))->assertOk();
 });

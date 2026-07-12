@@ -14,5 +14,10 @@ Route::middleware(RequireCustomer::class)->group(function (): void {
     Route::livewire('/', 'pages::home')->name('home');
     Route::livewire('/appointments', 'pages::appointments')->name('appointments');
     Route::livewire('/book', 'pages::book')->name('book');
+
+    // The booking screen doubles as the reschedule screen: same slot picker,
+    // prefilled from the appointment being moved.
+    Route::livewire('/appointments/{appointment}/reschedule', 'pages::book')
+        ->name('appointments.reschedule');
     Route::livewire('/profile', 'pages::profile')->name('profile');
 });

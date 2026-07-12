@@ -3,7 +3,16 @@
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
+/*
+ * Neither of these screens is a placeholder any more — they are covered in depth
+ * by AppointmentsTest and BookTest. What is left here is a smoke test that each
+ * tab renders, and both now call the API on mount, so it has to be faked or the
+ * screen reaches for the real one.
+ */
+
 it('renders the appointments screen', function () {
+    Http::fake(['*' => Http::response(['data' => []])]);
+
     Livewire::test('pages::appointments')
         ->assertOk()
         ->assertSee('Upcoming Appointments')
@@ -11,8 +20,6 @@ it('renders the appointments screen', function () {
 });
 
 it('renders the booking screen', function () {
-    // No longer a placeholder: the booking flow is covered in BookTest. The API
-    // still has to be faked here, or the screen reaches for the real one.
     Http::fake(['*' => Http::response(['data' => []])]);
 
     Livewire::test('pages::book')

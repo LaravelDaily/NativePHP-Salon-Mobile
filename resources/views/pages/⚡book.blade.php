@@ -41,18 +41,53 @@ new class extends Component
     public ?string $error = null;
 
     /**
-     * The appointment just booked. Its presence switches the screen to its
-     * success state.
+     * The appointment just booked or moved. Its presence switches the screen to
+     * its success state.
      *
      * @var array<string, mixed>|null
      */
     public ?array $booked = null;
 
-    public function mount(ApiClient $api): void
+    /**
+     * The appointment being moved, when the screen was opened to reschedule one.
+     * The service is then fixed — moving a colour appointment moves that
+     * appointment, it does not become a haircut — so only the day, the
+     * specialist and the time are still in play.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $rescheduling = null;
+
+    public function mount(ApiClient $api, ?string $appointment = null): void
     {
         $this->date = CarbonImmutable::today()->toDateString();
 
+        if ($appointment !== null) {
+            $this->startReschedule($api, (int) $appointment);
+
+            return;
+        }
+
         $this->loadServices($api);
+    }
+
+    private function startReschedule(ApiClient $api, int $appointmentId): void
+    {
+        try {
+            /** @var array<string, mixed> $existing */
+            $existing = $api->get("appointments/{$appointmentId}")['data'];
+        } catch (ApiException $exception) {
+            $this->error = $exception->getMessage();
+
+            return;
+        }
+
+        $this->rescheduling = $existing;
+        $this->serviceId = $existing['service']['id'];
+        $this->specialistId = $existing['specialist']['id'];
+        $this->date = CarbonImmutable::parse($existing['starts_at'])->toDateString();
+
+        $this->loadAvailability($api);
     }
 
     /**
@@ -91,6 +126,11 @@ new class extends Component
             $specialists = $api->get('availability', [
                 'service_id' => $this->serviceId,
                 'date' => $this->date,
+                // An appointment being moved must not block its own slot, or the
+                // time it currently holds would show as taken.
+                ...($this->rescheduling !== null
+                    ? ['exclude_appointment_id' => $this->rescheduling['id']]
+                    : []),
             ])['data']['specialists'] ?? [];
 
             $this->availability = $specialists;
@@ -183,11 +223,16 @@ new class extends Component
 
         try {
             /** @var array<string, mixed> $appointment */
-            $appointment = $api->post('appointments', [
-                'service_id' => $this->serviceId,
-                'specialist_id' => $this->specialistId,
-                'starts_at' => $this->startsAt,
-            ])['data'];
+            $appointment = $this->rescheduling !== null
+                ? $api->patch("appointments/{$this->rescheduling['id']}", [
+                    'starts_at' => $this->startsAt,
+                    'specialist_id' => $this->specialistId,
+                ])['data']
+                : $api->post('appointments', [
+                    'service_id' => $this->serviceId,
+                    'specialist_id' => $this->specialistId,
+                    'starts_at' => $this->startsAt,
+                ])['data'];
         } catch (ApiException $exception) {
             $this->handleFailure($exception, $api);
 
@@ -197,7 +242,7 @@ new class extends Component
         $this->booked = $appointment;
 
         Device::vibrate();
-        Dialog::toast('Booking confirmed');
+        Dialog::toast($this->rescheduling !== null ? 'Appointment moved' : 'Booking confirmed');
     }
 
     /**
@@ -265,7 +310,11 @@ new class extends Component
     #[Computed]
     public function selectedService(): ?array
     {
-        return collect($this->services)->firstWhere('id', $this->serviceId);
+        // When rescheduling, the catalog is never fetched: the service is
+        // whatever the appointment was booked for.
+        return collect($this->services)->firstWhere('id', $this->serviceId)
+            ?? $this->rescheduling['service']
+            ?? null;
     }
 
     /**
@@ -315,14 +364,18 @@ new class extends Component
     $serviceIcons = ['scissors' => '✂️', 'razor' => '🪒', 'sparkles' => '✨', 'palette' => '🎨'];
 @endphp
 
+@php($isReschedule = $rescheduling !== null)
+
 <div class="screen">
-    <native:top-bar title="New Appointment" :show-navigation-icon="false" />
+    <native:top-bar :title="$isReschedule ? 'Reschedule' : 'New Appointment'" :show-navigation-icon="$isReschedule" />
 
     @if ($booked)
         <div class="card mt-6 p-6 text-center" data-testid="booking-confirmed">
             <p class="text-4xl text-accent">&check;</p>
 
-            <h2 class="mt-3 text-2xl font-semibold tracking-tight">Booking confirmed</h2>
+            <h2 class="mt-3 text-2xl font-semibold tracking-tight">
+                {{ $isReschedule ? 'Appointment moved' : 'Booking confirmed' }}
+            </h2>
 
             <p class="mt-2 text-content-muted">
                 {{ $booked['service']['name'] }} with {{ $booked['specialist']['name'] }}
@@ -331,12 +384,16 @@ new class extends Component
 
             <a href="{{ route('appointments') }}" wire:navigate class="btn-accent mt-6">My appointments</a>
 
-            <button type="button" wire:click="bookAnother" class="mt-4 text-sm text-content-muted">
-                Book another
-            </button>
+            @unless ($isReschedule)
+                <button type="button" wire:click="bookAnother" class="mt-4 text-sm text-content-muted">
+                    Book another
+                </button>
+            @endunless
         </div>
     @else
-        <h2 class="text-2xl font-semibold tracking-tight">New Appointment</h2>
+        <h2 class="text-2xl font-semibold tracking-tight">
+            {{ $isReschedule ? 'Pick a new time' : 'New Appointment' }}
+        </h2>
 
         @if ($error)
             <p class="mt-4 rounded-2xl border border-danger/40 px-4 py-3 text-sm text-danger" data-testid="booking-error">
@@ -344,10 +401,19 @@ new class extends Component
             </p>
         @endif
 
-        <h3 class="mt-6 text-lg font-semibold">Choose Service</h3>
+        @if ($isReschedule)
+            <div class="card mt-6 p-5" data-testid="rescheduling">
+                <p class="text-xs uppercase tracking-widest text-content-subtle">Rescheduling</p>
+                <p class="mt-2 font-semibold">{{ $rescheduling['service']['name'] }}</p>
+                <p class="mt-1 text-sm text-content-muted">
+                    Currently {{ $rescheduling['date_label'] }} at {{ $rescheduling['time_label'] }}
+                </p>
+            </div>
+        @else
+            <h3 class="mt-6 text-lg font-semibold">Choose Service</h3>
 
-        <div class="mt-3 space-y-2">
-            @foreach ($services as $service)
+            <div class="mt-3 space-y-2">
+                @foreach ($services as $service)
                 <button
                     type="button"
                     wire:key="service-{{ $service['id'] }}"
@@ -370,8 +436,9 @@ new class extends Component
                         <span class="text-accent">&check;</span>
                     @endif
                 </button>
-            @endforeach
-        </div>
+                @endforeach
+            </div>
+        @endif
 
         <div class="mt-8 flex items-center justify-between">
             <h3 class="text-lg font-semibold">{{ $this->monthLabel }}</h3>
@@ -487,8 +554,10 @@ new class extends Component
                 @disabled(! $this->canConfirm())
                 class="btn-accent mt-5 disabled:bg-surface-raised disabled:text-content-subtle"
             >
-                <span wire:loading.remove wire:target="confirm">Confirm Booking</span>
-                <span wire:loading wire:target="confirm">Booking…</span>
+                <span wire:loading.remove wire:target="confirm">
+                    {{ $isReschedule ? 'Confirm New Time' : 'Confirm Booking' }}
+                </span>
+                <span wire:loading wire:target="confirm">Saving…</span>
             </button>
         </div>
     @endif
