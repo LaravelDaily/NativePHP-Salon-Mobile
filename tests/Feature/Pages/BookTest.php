@@ -29,7 +29,7 @@ function fakeServices(): array
  * @param  array<int, string>  $times  Slot start times, as 'HH:MM' on the booking date.
  * @return array<string, mixed>
  */
-function fakeSpecialist(int $id, string $name, array $times): array
+function fakeSpecialist(int $id, string $name, array $times, bool $isFavorite = false): array
 {
     $slots = array_map(fn (string $time): array => [
         'time' => $time,
@@ -39,7 +39,7 @@ function fakeSpecialist(int $id, string $name, array $times): array
     ], $times);
 
     return [
-        'specialist' => ['id' => $id, 'name' => $name, 'title' => 'Barber', 'bio' => null, 'photo_url' => null],
+        'specialist' => ['id' => $id, 'name' => $name, 'title' => 'Barber', 'bio' => null, 'photo_url' => null, 'is_favorite' => $isFavorite],
         'slot_count' => count($slots),
         'periods' => $slots === [] ? [] : [
             ['period' => 'morning', 'label' => 'Morning', 'slots' => $slots],
@@ -59,6 +59,7 @@ function fakeApi(array $specialists = [], mixed $booking = null): void
             'service' => ['id' => 1, 'name' => "Men's Precision Cut", 'duration_minutes' => 45],
             'specialists' => $specialists === [] ? [fakeSpecialist(1, 'Clay Burke', ['09:00', '09:30'])] : $specialists,
         ]]),
+        '*/api/v1/specialists/*/favorite' => Http::response(['data' => []]),
         '*/api/v1/appointments' => $booking ?? Http::response(['data' => [
             'id' => 7,
             'status' => 'confirmed',
@@ -145,6 +146,36 @@ it('switches specialist without asking the API again', function () {
         ->assertDontSee('9:00 AM');
 
     expect(Http::recorded())->toHaveCount($requestsBefore);
+});
+
+it('toggles a specialist favorite and moves favorites first', function () {
+    fakeApi([
+        fakeSpecialist(1, 'Clay Burke', ['09:00']),
+        fakeSpecialist(2, 'Eileen Rose', ['14:00']),
+    ]);
+
+    Livewire::test('pages::book')
+        ->call('toggleFavorite', 2)
+        ->assertSet('availability.0.specialist.id', 2)
+        ->assertSet('availability.0.specialist.is_favorite', true)
+        ->call('toggleFavorite', 2)
+        ->assertSet('availability.1.specialist.is_favorite', false);
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && str_contains($request->url(), 'specialists/2/favorite'));
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
+        && str_contains($request->url(), 'specialists/2/favorite'));
+});
+
+it('keeps a favorite specialist first when availability loads', function () {
+    fakeApi([
+        fakeSpecialist(2, 'Eileen Rose', ['14:00'], true),
+        fakeSpecialist(1, 'Clay Burke', ['09:00']),
+    ]);
+
+    Livewire::test('pages::book')
+        ->assertSet('specialistId', 2)
+        ->assertSeeInOrder(['Eileen Rose', 'Clay Burke']);
 });
 
 it('skips a specialist who is fully booked and picks one who is free', function () {

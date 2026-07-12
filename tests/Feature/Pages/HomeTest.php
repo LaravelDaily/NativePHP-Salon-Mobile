@@ -23,12 +23,14 @@ function salonPayload(array $overrides = []): array
  * to be stubbed or the unmatched one is sent for real.
  *
  * @param  array<int, array<string, mixed>>  $upcoming
+ * @param  array<int, array<string, mixed>>  $past
  */
-function fakeHomeApi(array $upcoming = []): void
+function fakeHomeApi(array $upcoming = [], array $past = []): void
 {
     Http::fake([
         '*/api/v1/salon' => Http::response(salonPayload()),
-        '*/api/v1/appointments*' => Http::response(['data' => $upcoming]),
+        '*/api/v1/appointments?filter=upcoming*' => Http::response(['data' => $upcoming]),
+        '*/api/v1/appointments?filter=reviewable*' => Http::response(['data' => $past]),
     ]);
 }
 
@@ -42,6 +44,30 @@ it('renders the salon fetched from the API', function () {
         ->assertSee('Mon–Fri 09:00–19:00, Sat 10:00–16:00, Sun Closed', escape: false)
         ->assertSee('128 Barber Street, Brooklyn, NY 11201')
         ->assertSet('error', null);
+});
+
+it('prompts for feedback after a completed visit', function () {
+    fakeHomeApi(past: [[
+        'id' => 8,
+        'status' => 'completed',
+        'feedback' => null,
+        'service' => ['name' => 'Hair Color'],
+        'specialist' => ['name' => 'Eileen Rose'],
+    ]]);
+
+    Livewire::test('pages::home')
+        ->assertSet('pendingFeedback.id', 8)
+        ->assertSee('How did we do?')
+        ->assertSee('Rate your Hair Color')
+        ->assertSee('Eileen Rose');
+});
+
+it('does not prompt when the API has no reviewable appointment', function () {
+    fakeHomeApi();
+
+    Livewire::test('pages::home')
+        ->assertSet('pendingFeedback', null)
+        ->assertDontSee('How did we do?');
 });
 
 it('shows the next appointment on the dashboard', function () {

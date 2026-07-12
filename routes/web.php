@@ -20,4 +20,7 @@ Route::middleware(RequireCustomer::class)->group(function (): void {
     Route::livewire('/appointments/{appointment}/reschedule', 'pages::book')
         ->name('appointments.reschedule');
     Route::livewire('/profile', 'pages::profile')->name('profile');
+    Route::livewire('/profile/stylists', 'pages::stylists')->name('profile.stylists');
+    Route::livewire('/appointments/{appointment}/feedback', 'pages::feedback')
+        ->name('appointments.feedback');
 });

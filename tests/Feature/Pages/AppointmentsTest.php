@@ -22,6 +22,7 @@ function fakeAppointment(int $id, string $service, string $specialist, string $s
         'date_label' => 'Wed, 5 Aug 2026',
         'time_label' => '10:00 AM',
         'notes' => null,
+        'feedback' => null,
         'service' => ['id' => 1, 'name' => $service],
         'specialist' => ['id' => 1, 'name' => $specialist, 'photo_url' => null],
     ];
@@ -56,7 +57,18 @@ it('lists upcoming appointments and history', function () {
         ->assertSee('Cancel Appointment')
         ->assertSee('History')
         ->assertSee('Hair Color')
-        ->assertSee('Completed');
+        ->assertSee('Completed')
+        ->assertSee('Rate this visit');
+});
+
+it('shows an existing rating instead of asking again', function () {
+    $appointment = fakeAppointment(2, 'Hair Color', 'Eileen Rose', 'completed');
+    $appointment['feedback'] = ['id' => 4, 'rating' => 4, 'comment' => null];
+    fakeAppointmentsApi(past: [$appointment]);
+
+    Livewire::test('pages::appointments')
+        ->assertSee('★★★★')
+        ->assertDontSee('Rate this visit');
 });
 
 it('offers a booking link when there is nothing coming up', function () {

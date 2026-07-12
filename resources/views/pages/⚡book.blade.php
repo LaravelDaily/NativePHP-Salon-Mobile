@@ -198,6 +198,35 @@ new class extends Component
         $this->startsAt = null;
     }
 
+    public function toggleFavorite(int $specialistId, ApiClient $api): void
+    {
+        $index = collect($this->availability)
+            ->search(fn (array $entry): bool => $entry['specialist']['id'] === $specialistId);
+
+        if ($index === false) {
+            return;
+        }
+
+        $isFavorite = (bool) ($this->availability[$index]['specialist']['is_favorite'] ?? false);
+
+        try {
+            $isFavorite
+                ? $api->delete("specialists/{$specialistId}/favorite")
+                : $api->post("specialists/{$specialistId}/favorite");
+        } catch (ApiException $exception) {
+            $this->error = $exception->getMessage();
+
+            return;
+        }
+
+        $this->availability[$index]['specialist']['is_favorite'] = ! $isFavorite;
+
+        usort($this->availability, fn (array $left, array $right): int =>
+            ((int) ($right['specialist']['is_favorite'] ?? false) <=> (int) ($left['specialist']['is_favorite'] ?? false))
+            ?: ($left['specialist']['name'] <=> $right['specialist']['name'])
+        );
+    }
+
     public function selectTime(string $startsAt): void
     {
         $this->startsAt = $startsAt;
@@ -475,30 +504,41 @@ new class extends Component
                 @foreach ($availability as $entry)
                     @php($specialist = $entry['specialist'])
 
-                    <button
-                        type="button"
+                    <div
                         wire:key="specialist-{{ $specialist['id'] }}"
-                        wire:click="selectSpecialist({{ $specialist['id'] }})"
-                        @disabled($entry['slot_count'] === 0)
-                        @class(['w-20 shrink-0 text-center', 'opacity-40' => $entry['slot_count'] === 0])
+                        @class(['relative w-20 shrink-0 text-center', 'opacity-40' => $entry['slot_count'] === 0])
                     >
-                        <span @class([
-                            'relative mx-auto flex size-16 items-center justify-center rounded-full bg-surface-raised font-semibold',
-                            'ring-2 ring-accent' => $specialist['id'] === $specialistId,
-                        ])>
-                            @if ($specialist['photo_url'])
-                                <img src="{{ $specialist['photo_url'] }}" alt="" class="size-16 rounded-full object-cover">
-                            @else
-                                {{ Str::of($specialist['name'])->explode(' ')->take(2)->map(fn (string $part): string => Str::substr($part, 0, 1))->implode('') }}
-                            @endif
+                        <button
+                            type="button"
+                            wire:click="selectSpecialist({{ $specialist['id'] }})"
+                            @disabled($entry['slot_count'] === 0)
+                            class="w-full"
+                        >
+                            <span @class([
+                                'relative mx-auto flex size-16 items-center justify-center rounded-full bg-surface-raised font-semibold',
+                                'ring-2 ring-accent' => $specialist['id'] === $specialistId,
+                            ])>
+                                @if ($specialist['photo_url'])
+                                    <img src="{{ $specialist['photo_url'] }}" alt="" class="size-16 rounded-full object-cover">
+                                @else
+                                    {{ Str::of($specialist['name'])->explode(' ')->take(2)->map(fn (string $part): string => Str::substr($part, 0, 1))->implode('') }}
+                                @endif
 
-                            @if ($specialist['id'] === $specialistId)
-                                <span class="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-accent text-xs text-accent-ink">&check;</span>
-                            @endif
-                        </span>
+                                @if ($specialist['id'] === $specialistId)
+                                    <span class="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-accent text-xs text-accent-ink">&check;</span>
+                                @endif
+                            </span>
 
-                        <span class="mt-2 block truncate text-xs text-content-muted">{{ $specialist['name'] }}</span>
-                    </button>
+                            <span class="mt-2 block truncate text-xs text-content-muted">{{ $specialist['name'] }}</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            wire:click="toggleFavorite({{ $specialist['id'] }})"
+                            class="absolute -left-1 -top-1 flex size-6 items-center justify-center rounded-full bg-surface text-sm {{ ($specialist['is_favorite'] ?? false) ? 'text-accent' : 'text-content-subtle' }}"
+                            aria-label="{{ ($specialist['is_favorite'] ?? false) ? 'Remove' : 'Add' }} {{ $specialist['name'] }} {{ ($specialist['is_favorite'] ?? false) ? 'from' : 'to' }} favorites"
+                        >♥</button>
+                    </div>
                 @endforeach
             </div>
         @endif

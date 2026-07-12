@@ -224,7 +224,8 @@ new class extends Component
     </h2>
 
     @forelse ($past as $appointment)
-        <div class="card mt-4 flex items-center gap-3 p-5" wire:key="past-{{ $appointment['id'] }}">
+        <div class="card mt-4 p-5" wire:key="past-{{ $appointment['id'] }}">
+            <div class="flex items-center gap-3">
             <div class="min-w-0 flex-1">
                 <p class="truncate font-medium">{{ $appointment['service']['name'] }}</p>
                 <p class="truncate text-sm text-content-muted">
@@ -238,6 +239,17 @@ new class extends Component
             ])>
                 {{ $appointment['status_label'] }}
             </span>
+            </div>
+
+            @if ($appointment['status'] === 'completed' && ($appointment['feedback'] ?? null) === null)
+                <a href="{{ route('appointments.feedback', $appointment['id']) }}" wire:navigate class="mt-4 block text-sm font-medium text-accent">
+                    Rate this visit →
+                </a>
+            @elseif (($appointment['feedback'] ?? null) !== null)
+                <p class="mt-3 text-sm text-accent" aria-label="Rated {{ $appointment['feedback']['rating'] }} out of 5">
+                    {{ str_repeat('★', $appointment['feedback']['rating']) }}<span class="text-content-subtle">{{ str_repeat('★', 5 - $appointment['feedback']['rating']) }}</span>
+                </p>
+            @endif
         </div>
     @empty
         <div class="card mt-6 p-8 text-center">

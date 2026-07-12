@@ -1,38 +1,56 @@
 <?php
 
+use App\Exceptions\ApiException;
+use App\Services\ApiClient;
 use App\Services\CustomerAuth;
 use Livewire\Component;
 
 new class extends Component
 {
-    /** @var array<string, mixed>|null */
+    /** @var array{id: int, name: string, email?: string|null, phone?: string|null, ...}|null */
     public ?array $user = null;
 
-    public function mount(CustomerAuth $auth): void
+    /** @var array<int, array{id: int, name: string, photo_url: string|null, ...}> */
+    public array $favoriteStylists = [];
+
+    /** @var array{average_rating: float|int|null, feedback_count: int, ...}|null */
+    public ?array $salon = null;
+
+    public function mount(CustomerAuth $auth, ApiClient $api): void
     {
         $this->user = $auth->user();
+
+        $this->loadFavoriteStylists($api);
+        $this->loadSalon($api);
     }
 
-    public function signOut(CustomerAuth $auth)
+    public function loadFavoriteStylists(ApiClient $api): void
+    {
+        try {
+            /** @var array<int, array{id: int, name: string, photo_url: string|null, ...}> $favorites */
+            $favorites = $api->get('me/stylists')['data'] ?? [];
+            $this->favoriteStylists = $favorites;
+        } catch (ApiException) {
+            $this->favoriteStylists = [];
+        }
+    }
+
+    public function loadSalon(ApiClient $api): void
+    {
+        try {
+            /** @var array{average_rating: float|int|null, feedback_count: int, ...}|null $salon */
+            $salon = $api->get('salon')['data'] ?? null;
+            $this->salon = $salon;
+        } catch (ApiException) {
+            $this->salon = null;
+        }
+    }
+
+    public function signOut(CustomerAuth $auth): mixed
     {
         $auth->signOut();
 
         return $this->redirectRoute('auth.welcome', navigate: true);
-    }
-
-    /**
-     * The profile menu from the mockups. Each row is wired up in a later phase.
-     *
-     * @return array<int, array{label: string, description: string}>
-     */
-    public function menu(): array
-    {
-        return [
-            ['label' => 'My Stylists', 'description' => 'Your favourite specialists'],
-            ['label' => 'Booking History', 'description' => 'Past visits and reorders'],
-            ['label' => 'Salon Feedback', 'description' => 'Rate your experience'],
-            ['label' => 'App Settings', 'description' => 'Notifications and account'],
-        ];
     }
 };
 ?>
@@ -49,15 +67,57 @@ new class extends Component
     </div>
 
     <div class="mt-6 space-y-3">
-        @foreach ($this->menu() as $item)
-            <div class="card flex items-center justify-between p-5">
-                <div>
-                    <p class="font-medium">{{ $item['label'] }}</p>
-                    <p class="text-sm text-content-muted">{{ $item['description'] }}</p>
-                </div>
-                <span class="text-content-subtle">&rsaquo;</span>
+        <a href="{{ route('profile.stylists') }}" wire:navigate class="card flex items-center justify-between gap-4 p-5">
+            <div class="min-w-0 flex-1">
+                <p class="font-medium">My Stylists</p>
+                <p class="text-sm text-content-muted">
+                    {{ $favoriteStylists === [] ? 'Your favourite specialists' : count($favoriteStylists).' saved' }}
+                </p>
             </div>
-        @endforeach
+
+            @if ($favoriteStylists !== [])
+                <div class="flex -space-x-3" aria-label="Favorite stylist avatars">
+                    @foreach (array_slice($favoriteStylists, 0, 3) as $stylist)
+                        <span class="flex size-9 items-center justify-center overflow-hidden rounded-full border-2 border-surface bg-surface-raised text-xs font-semibold" wire:key="profile-stylist-{{ $stylist['id'] }}">
+                            @if ($stylist['photo_url'])
+                                <img src="{{ $stylist['photo_url'] }}" alt="" class="size-full object-cover">
+                            @else
+                                {{ Str::substr($stylist['name'], 0, 1) }}
+                            @endif
+                        </span>
+                    @endforeach
+                </div>
+            @endif
+
+            <span class="text-content-subtle">&rsaquo;</span>
+        </a>
+
+        <a href="{{ route('appointments') }}" wire:navigate class="card flex items-center justify-between p-5">
+            <div>
+                <p class="font-medium">Booking History</p>
+                <p class="text-sm text-content-muted">Past visits and ratings</p>
+            </div>
+            <span class="text-content-subtle">&rsaquo;</span>
+        </a>
+
+        <div class="card flex items-center justify-between gap-4 p-5">
+            <div>
+                <p class="font-medium">Salon Feedback</p>
+                <p class="text-sm text-content-muted">Based on {{ $salon['feedback_count'] ?? 0 }} customer reviews</p>
+            </div>
+            <div class="text-right">
+                <p class="text-lg font-semibold text-accent">★ {{ $salon['average_rating'] ?? '—' }}</p>
+                <p class="text-xs text-content-subtle">out of 5</p>
+            </div>
+        </div>
+
+        <div class="card flex items-center justify-between p-5">
+            <div>
+                <p class="font-medium">App Settings</p>
+                <p class="text-sm text-content-muted">Notifications and account</p>
+            </div>
+            <span class="text-content-subtle">&rsaquo;</span>
+        </div>
     </div>
 
     <button
