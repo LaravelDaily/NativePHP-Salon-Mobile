@@ -40,6 +40,44 @@ it('returns the decoded body', function () {
     expect(apiClient()->get('salon'))->toBe(['data' => ['name' => 'StyleHub']]);
 });
 
+it('fetches independent GET requests concurrently with the usual API configuration', function () {
+    Http::preventStrayRequests();
+    Http::fake([
+        'http://10.0.2.2/api/v1/salon' => Http::response(['data' => ['name' => 'StyleHub']]),
+        'http://10.0.2.2/api/v1/appointments?filter=upcoming' => Http::response(['data' => []]),
+    ]);
+
+    $responses = apiClient(host: 'salon-api.test')->withToken('secret-token')->getMany([
+        'salon' => ['path' => 'salon'],
+        'upcoming' => ['path' => 'appointments', 'query' => ['filter' => 'upcoming']],
+    ]);
+
+    expect($responses['salon'])->toBe(['data' => ['data' => ['name' => 'StyleHub']], 'error' => null])
+        ->and($responses['upcoming'])->toBe(['data' => ['data' => []], 'error' => null]);
+
+    Http::assertSentCount(2);
+    Http::assertSent(fn ($request): bool => $request->hasHeader('Host', 'salon-api.test')
+        && $request->hasHeader('Authorization', 'Bearer secret-token'));
+});
+
+it('keeps pooled request failures isolated to their named result', function () {
+    Http::preventStrayRequests();
+    Http::fake([
+        '*/api/v1/salon' => Http::response(['data' => ['name' => 'StyleHub']]),
+        '*/api/v1/appointments?filter=reviewable' => Http::response(status: 500),
+    ]);
+
+    $responses = apiClient()->getMany([
+        'salon' => ['path' => 'salon'],
+        'reviewable' => ['path' => 'appointments', 'query' => ['filter' => 'reviewable']],
+    ]);
+
+    expect($responses['salon']['data'])->toBe(['data' => ['name' => 'StyleHub']])
+        ->and($responses['salon']['error'])->toBeNull()
+        ->and($responses['reviewable']['data'])->toBeNull()
+        ->and($responses['reviewable']['error'])->toBeInstanceOf(ApiException::class);
+});
+
 it('sends a bearer token once one is set', function () {
     Http::fake(['*' => Http::response([])]);
 

@@ -7,6 +7,7 @@ use App\Exceptions\ApiException;
 use Closure;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
@@ -62,6 +63,54 @@ class ApiClient
     public function get(string $path, array $query = []): array
     {
         return $this->send(fn (PendingRequest $request): Response => $request->get($path, $query));
+    }
+
+    /**
+     * Fetch independent GET endpoints concurrently.
+     *
+     * @param  array<string, array{path: string, query?: array<string, mixed>}>  $requests
+     * @return array<string, array{data: array<string, mixed>|null, error: ApiException|null}>
+     */
+    public function getMany(array $requests): array
+    {
+        $responses = $this->request()->pool(function (Pool $pool) use ($requests): void {
+            foreach ($requests as $name => $request) {
+                $this->pooledRequest($pool, $name)
+                    ->get($request['path'], $request['query'] ?? []);
+            }
+        });
+
+        $data = [];
+
+        foreach ($responses as $name => $response) {
+            if (! $response instanceof Response) {
+                if (! $response instanceof ConnectionException) {
+                    throw $response;
+                }
+
+                $data[$name] = [
+                    'data' => null,
+                    'error' => ApiException::unreachable($response),
+                ];
+
+                continue;
+            }
+
+            if ($response->failed()) {
+                $data[$name] = [
+                    'data' => null,
+                    'error' => ApiException::fromResponse($response),
+                ];
+
+                continue;
+            }
+
+            /** @var array<string, mixed> $body */
+            $body = $response->json() ?? [];
+            $data[$name] = ['data' => $body, 'error' => null];
+        }
+
+        return $data;
     }
 
     /**
@@ -131,6 +180,27 @@ class ApiClient
         // The Android emulator reaches the host machine at 10.0.2.2 but cannot
         // resolve Herd's .test domains, so we address the host directly and let
         // this Host header tell Herd which site to serve.
+        if ($this->hostHeader !== null && $this->hostHeader !== '') {
+            $request->withHeaders(['Host' => $this->hostHeader]);
+        }
+
+        $token = $this->currentToken();
+
+        if ($token !== null) {
+            $request->withToken($token);
+        }
+
+        return $request;
+    }
+
+    private function pooledRequest(Pool $pool, string $name): PendingRequest
+    {
+        $request = $pool->as($name)
+            ->baseUrl(rtrim($this->baseUrl, '/').'/'.self::API_PREFIX)
+            ->timeout($this->timeout)
+            ->acceptJson()
+            ->asJson();
+
         if ($this->hostHeader !== null && $this->hostHeader !== '') {
             $request->withHeaders(['Host' => $this->hostHeader]);
         }
