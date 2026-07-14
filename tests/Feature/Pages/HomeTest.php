@@ -1,8 +1,9 @@
 <?php
 
+use App\NativeComponents\Home;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Native\Mobile\Testing\Native;
 
 /** @return array<string, mixed> */
 function salonPayload(array $overrides = []): array
@@ -30,13 +31,20 @@ function fakeHomeApi(array $upcoming = [], array $reviewable = []): void
 it('renders the dashboard after concurrent API loading', function () {
     fakeHomeApi();
 
-    Livewire::test('pages::home')
-        ->assertOk()
+    Native::test(Home::class)
         ->assertSee('StyleHub')
         ->assertSee('Precision cuts and classic grooming')
         ->assertSet('error', null);
 
     Http::assertSentCount(3);
+});
+
+it('shows the shared tab bar on the home route', function () {
+    fakeHomeApi();
+
+    Native::visit('/')
+        ->assertScreen(Home::class)
+        ->assertHasTabBar();
 });
 
 it('prompts for feedback after a completed visit', function () {
@@ -48,9 +56,10 @@ it('prompts for feedback after a completed visit', function () {
         'specialist' => ['name' => 'Eileen Rose'],
     ]]);
 
-    Livewire::test('pages::home')
-        ->assertSet('pendingFeedback.id', 8)
-        ->assertSee('How did we do?');
+    Native::test(Home::class)
+        ->assertSee('HOW DID WE DO?')
+        ->press('giveFeedback')
+        ->assertNavigatedTo('/appointments/8/feedback');
 });
 
 it('shows the next appointment on the dashboard', function () {
@@ -62,17 +71,18 @@ it('shows the next appointment on the dashboard', function () {
         'specialist' => ['name' => 'Clay Burke'],
     ]]);
 
-    Livewire::test('pages::home')
-        ->assertSet('next.id', 3)
+    Native::test(Home::class)
         ->assertSee("Men's Precision Cut")
-        ->assertSee('with Clay Burke');
+        ->assertSee('with Clay Burke')
+        ->press('viewAppointments')
+        ->assertNavigatedTo('/appointments');
 });
 
 it('shows a friendly message when the salon API cannot be reached', function () {
     Http::preventStrayRequests();
     Http::fake(fn () => throw new ConnectionException('Connection refused'));
 
-    Livewire::test('pages::home')
+    Native::test(Home::class)
         ->assertSee("Can't reach StyleHub right now.")
         ->assertSet('salon', null);
 });
@@ -88,10 +98,10 @@ it('recovers when a retry succeeds', function () {
         return Http::response(salonPayload(['name' => 'StyleHub Brooklyn']));
     });
 
-    $component = Livewire::test('pages::home')->assertSee('Try again');
+    $component = Native::test(Home::class)->assertSee('Try again');
     $offline = false;
 
-    $component->call('load')
+    $component->press('load')
         ->assertSet('error', null)
         ->assertSee('StyleHub Brooklyn');
 });
@@ -101,6 +111,5 @@ it('is reachable at the home route by a signed-in customer', function () {
 
     $this->withSession(customerSession())
         ->get(route('home'))
-        ->assertOk()
-        ->assertSeeLivewire('pages::home');
+        ->assertOk();
 });

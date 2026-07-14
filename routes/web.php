@@ -5,6 +5,8 @@ use App\Http\Middleware\RequireGuest;
 use App\NativeComponents\Auth\Otp;
 use App\NativeComponents\Auth\Register;
 use App\NativeComponents\Auth\Welcome;
+use App\NativeComponents\Home;
+use App\NativeComponents\Layouts\SalonTabsLayout;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(RequireGuest::class)->group(function (): void {
@@ -14,7 +16,10 @@ Route::middleware(RequireGuest::class)->group(function (): void {
 });
 
 Route::middleware(RequireCustomer::class)->group(function (): void {
-    Route::livewire('/', 'pages::home')->name('home');
+    Route::nativeGroup(SalonTabsLayout::class, function (): void {
+        Route::native('/', Home::class)->name('home');
+    });
+
     Route::livewire('/appointments', 'pages::appointments')->name('appointments');
     Route::livewire('/book', 'pages::book')->name('book');
 
