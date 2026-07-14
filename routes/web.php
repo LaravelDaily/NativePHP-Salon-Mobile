@@ -2,12 +2,13 @@
 
 use App\Http\Middleware\RequireCustomer;
 use App\Http\Middleware\RequireGuest;
+use App\NativeComponents\Auth\Register;
 use App\NativeComponents\Auth\Welcome;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(RequireGuest::class)->group(function (): void {
     Route::native('/welcome', Welcome::class)->name('auth.welcome');
-    Route::livewire('/register', 'pages::auth.register')->name('auth.register');
+    Route::native('/register', Register::class)->name('auth.register');
     Route::livewire('/sign-in-with-code', 'pages::auth.otp')->name('auth.otp');
 });
 

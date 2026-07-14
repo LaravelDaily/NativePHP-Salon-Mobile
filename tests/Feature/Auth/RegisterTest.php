@@ -1,23 +1,24 @@
 <?php
 
 use App\Contracts\TokenStore;
+use App\NativeComponents\Auth\Register;
 use Illuminate\Support\Facades\Http;
-use Livewire\Features\SupportTesting\Testable;
-use Livewire\Livewire;
+use Native\Mobile\Testing\Native;
+use Native\Mobile\Testing\TestableComponent;
 
-function fillRegistration(Testable $component): Testable
+function fillRegistration(TestableComponent $component): TestableComponent
 {
     return $component
-        ->set('name', 'John Doe')
-        ->set('email', 'johndoe@email.com')
-        ->set('phone', '+1 555-1234')
-        ->set('password', 'secret-password')
-        ->set('passwordConfirmation', 'secret-password');
+        ->input('name', 'John Doe')
+        ->input('email', 'johndoe@email.com')
+        ->input('phone', '+1 555-1234')
+        ->input('password', 'secret-password')
+        ->input('passwordConfirmation', 'secret-password');
 }
 
 it('renders the create account screen with the fields from the mockup', function () {
-    Livewire::test('pages::auth.register')
-        ->assertOk()
+    Native::visit('/register')
+        ->assertScreen(Register::class)
         ->assertSee('Create Account')
         ->assertSee('Full Name')
         ->assertSee('Email Address')
@@ -32,10 +33,10 @@ it('registers a customer and signs them in', function () {
         'user' => ['id' => 1, 'name' => 'John Doe'],
     ], 201)]);
 
-    fillRegistration(Livewire::test('pages::auth.register'))
-        ->call('register')
-        ->assertHasNoErrors()
-        ->assertRedirect(route('home'));
+    fillRegistration(Native::test(Register::class))
+        ->press('register')
+        ->assertSet('fieldErrors', [])
+        ->assertReplacedWith('/');
 
     expect(app(TokenStore::class)->get())->toBe('issued-token');
 
@@ -50,11 +51,11 @@ it('puts a server-side field error onto the right field', function () {
         'errors' => ['email' => ['An account already exists for that email address.']],
     ], 422)]);
 
-    fillRegistration(Livewire::test('pages::auth.register'))
-        ->call('register')
-        ->assertHasErrors('email')
+    fillRegistration(Native::test(Register::class))
+        ->press('register')
+        ->assertSet('fieldErrors', ['email' => 'An account already exists for that email address.'])
         ->assertSee('An account already exists for that email address.')
-        ->assertNoRedirect();
+        ->assertNoNavigation();
 
     expect(app(TokenStore::class)->has())->toBeFalse();
 });
@@ -62,9 +63,13 @@ it('puts a server-side field error onto the right field', function () {
 it('requires every field', function () {
     Http::fake();
 
-    Livewire::test('pages::auth.register')
-        ->call('register')
-        ->assertHasErrors(['name', 'email', 'phone', 'password']);
+    Native::test(Register::class)
+        ->press('register')
+        ->assertSee('The name field is required.')
+        ->assertSee('The email field is required.')
+        ->assertSee('The phone field is required.')
+        ->assertSee('The password field is required.')
+        ->assertNoNavigation();
 
     Http::assertNothingSent();
 });
@@ -72,10 +77,11 @@ it('requires every field', function () {
 it('requires the two passwords to match', function () {
     Http::fake();
 
-    fillRegistration(Livewire::test('pages::auth.register'))
-        ->set('passwordConfirmation', 'something-else')
-        ->call('register')
-        ->assertHasErrors('password');
+    fillRegistration(Native::test(Register::class))
+        ->input('passwordConfirmation', 'something-else')
+        ->press('register')
+        ->assertSee('The password field must match password confirmation.')
+        ->assertNoNavigation();
 
     Http::assertNothingSent();
 });
