@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\RequireCustomer;
 use App\Http\Middleware\RequireGuest;
+use App\NativeComponents\Appointments;
 use App\NativeComponents\Auth\Otp;
 use App\NativeComponents\Auth\Register;
 use App\NativeComponents\Auth\Welcome;
@@ -18,9 +19,8 @@ Route::middleware(RequireGuest::class)->group(function (): void {
 Route::middleware(RequireCustomer::class)->group(function (): void {
     Route::nativeGroup(SalonTabsLayout::class, function (): void {
         Route::native('/', Home::class)->name('home');
+        Route::native('/appointments', Appointments::class)->name('appointments');
     });
-
-    Route::livewire('/appointments', 'pages::appointments')->name('appointments');
     Route::livewire('/book', 'pages::book')->name('book');
 
     // The booking screen doubles as the reschedule screen: same slot picker,

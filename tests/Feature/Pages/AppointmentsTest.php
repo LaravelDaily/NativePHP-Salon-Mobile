@@ -1,8 +1,10 @@
 <?php
 
+use App\NativeComponents\Appointments;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Native\Mobile\Events\Alert\ButtonPressed;
 use Native\Mobile\Facades\Device;
+use Native\Mobile\Testing\Native;
 
 beforeEach(function (): void {
     signIn();
@@ -47,8 +49,9 @@ it('lists upcoming appointments and history', function () {
         past: [fakeAppointment(2, 'Hair Color', 'Eileen Rose', 'completed')],
     );
 
-    Livewire::test('pages::appointments')
-        ->assertOk()
+    Native::visit('/appointments')
+        ->assertScreen(Appointments::class)
+        ->assertNavTitle('Appointments')
         ->assertSee('Upcoming Appointments')
         ->assertSee("Men's Precision Cut")
         ->assertSee('with Clay Burke')
@@ -66,7 +69,7 @@ it('shows an existing rating instead of asking again', function () {
     $appointment['feedback'] = ['id' => 4, 'rating' => 4, 'comment' => null];
     fakeAppointmentsApi(past: [$appointment]);
 
-    Livewire::test('pages::appointments')
+    Native::test(Appointments::class)
         ->assertSee('★★★★')
         ->assertDontSee('Rate this visit');
 });
@@ -74,44 +77,31 @@ it('shows an existing rating instead of asking again', function () {
 it('offers a booking link when there is nothing coming up', function () {
     fakeAppointmentsApi();
 
-    Livewire::test('pages::appointments')
+    Native::test(Appointments::class)
         ->assertSee('You have no upcoming appointments.')
         ->assertSee('Your past visits will appear here.');
 });
 
-it('asks for confirmation before cancelling', function () {
+it('asks the native dialog for confirmation before cancelling', function () {
     fakeAppointmentsApi(upcoming: [fakeAppointment(1, "Men's Precision Cut", 'Clay Burke')]);
 
-    Livewire::test('pages::appointments')
-        ->assertDontSee('Cancel this appointment?')
-        ->call('confirmCancel', 1)
+    Native::test(Appointments::class)
+        ->press('confirmCancel(1)')
         ->assertSet('cancelling', 1)
-        ->assertSee('Cancel this appointment?');
+        ->assertNativeCalled('Dialog.Alert');
 
     // Nothing has been cancelled just by asking.
     Http::assertNotSent(fn ($request): bool => $request->method() === 'DELETE');
 });
 
-it('keeps the appointment when the confirmation is declined', function () {
-    fakeAppointmentsApi(upcoming: [fakeAppointment(1, "Men's Precision Cut", 'Clay Burke')]);
-
-    Livewire::test('pages::appointments')
-        ->call('confirmCancel', 1)
-        ->call('keepIt')
-        ->assertSet('cancelling', null)
-        ->assertDontSee('Cancel this appointment?');
-
-    Http::assertNotSent(fn ($request): bool => $request->method() === 'DELETE');
-});
-
-it('cancels the appointment once confirmed', function () {
+it('cancels when the native dialog\'s cancel button comes back', function () {
     fakeAppointmentsApi(upcoming: [fakeAppointment(1, "Men's Precision Cut", 'Clay Burke')]);
 
     Device::spy();
 
-    Livewire::test('pages::appointments')
-        ->call('confirmCancel', 1)
-        ->call('cancel')
+    Native::test(Appointments::class)
+        ->press('confirmCancel(1)')
+        ->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Cancel appointment', 'id' => 'cancel-appointment'])
         ->assertSet('cancelling', null)
         ->assertSee('Your appointment has been cancelled.');
 
@@ -121,23 +111,12 @@ it('cancels the appointment once confirmed', function () {
     Device::shouldHaveReceived('vibrate')->once();
 });
 
-it('cancels when the native dialog\'s cancel button comes back', function () {
-    fakeAppointmentsApi(upcoming: [fakeAppointment(1, "Men's Precision Cut", 'Clay Burke')]);
-
-    Livewire::test('pages::appointments')
-        ->call('confirmCancel', 1)
-        ->call('onDialogButton', 1, 'Cancel appointment', 'cancel-appointment')
-        ->assertSet('cancelling', null);
-
-    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE');
-});
-
 it('keeps the appointment when the native dialog is dismissed', function () {
     fakeAppointmentsApi(upcoming: [fakeAppointment(1, "Men's Precision Cut", 'Clay Burke')]);
 
-    Livewire::test('pages::appointments')
-        ->call('confirmCancel', 1)
-        ->call('onDialogButton', 0, 'Keep it', 'cancel-appointment')
+    Native::test(Appointments::class)
+        ->press('confirmCancel(1)')
+        ->emitNative(ButtonPressed::class, ['index' => 0, 'label' => 'Keep it', 'id' => 'cancel-appointment'])
         ->assertSet('cancelling', null);
 
     Http::assertNotSent(fn ($request): bool => $request->method() === 'DELETE');
@@ -146,9 +125,9 @@ it('keeps the appointment when the native dialog is dismissed', function () {
 it('ignores a button press from some other dialog', function () {
     fakeAppointmentsApi(upcoming: [fakeAppointment(1, "Men's Precision Cut", 'Clay Burke')]);
 
-    Livewire::test('pages::appointments')
-        ->call('confirmCancel', 1)
-        ->call('onDialogButton', 1, 'Delete', 'some-other-dialog')
+    Native::test(Appointments::class)
+        ->press('confirmCancel(1)')
+        ->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Delete', 'id' => 'some-other-dialog'])
         ->assertSet('cancelling', 1);
 
     Http::assertNotSent(fn ($request): bool => $request->method() === 'DELETE');
@@ -163,17 +142,31 @@ it('reads out the salon\'s reason when a cancellation is refused', function () {
         ], 422),
     );
 
-    Livewire::test('pages::appointments')
-        ->call('confirmCancel', 1)
-        ->call('cancel')
+    Native::test(Appointments::class)
+        ->press('confirmCancel(1)')
+        ->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Cancel appointment', 'id' => 'cancel-appointment'])
         ->assertSee('less than 2 hours before they start')
         ->assertSet('cancelling', null);
+});
+
+it('navigates to reschedule and feedback from the lists', function () {
+    fakeAppointmentsApi(
+        upcoming: [fakeAppointment(1, "Men's Precision Cut", 'Clay Burke')],
+        past: [fakeAppointment(2, 'Hair Color', 'Eileen Rose', 'completed')],
+    );
+
+    Native::test(Appointments::class)
+        ->press('reschedule(1)')
+        ->assertNavigatedTo('/appointments/1/reschedule');
+
+    Native::test(Appointments::class)
+        ->press('rateVisit(2)')
+        ->assertNavigatedTo('/appointments/2/feedback');
 });
 
 it('surfaces a failure to load rather than blowing up', function () {
     Http::fake(['*' => Http::response(null, 500)]);
 
-    Livewire::test('pages::appointments')
-        ->assertOk()
+    Native::test(Appointments::class)
         ->assertSee('StyleHub is having trouble right now.');
 });
