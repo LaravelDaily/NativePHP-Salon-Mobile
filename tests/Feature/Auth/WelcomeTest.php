@@ -1,13 +1,14 @@
 <?php
 
 use App\Contracts\TokenStore;
+use App\NativeComponents\Auth\Welcome;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Native\Mobile\Testing\Native;
 
 it('renders the sign-in screen', function () {
-    Livewire::test('pages::auth.welcome')
-        ->assertOk()
+    Native::visit('/welcome')
+        ->assertScreen(Welcome::class)
         ->assertSee('Welcome Back')
         ->assertSee('Sign In')
         ->assertSee('Sign in with a code');
@@ -19,12 +20,12 @@ it('signs a customer in and stores the token', function () {
         'user' => ['id' => 1, 'name' => 'John Doe'],
     ])]);
 
-    Livewire::test('pages::auth.welcome')
-        ->set('email', 'john@example.com')
-        ->set('password', 'secret-password')
-        ->call('signIn')
-        ->assertHasNoErrors()
-        ->assertRedirect(route('home'));
+    Native::test(Welcome::class)
+        ->input('email', 'john@example.com')
+        ->input('password', 'secret-password')
+        ->press('signIn')
+        ->assertSet('fieldErrors', [])
+        ->assertReplacedWith('/');
 
     expect(app(TokenStore::class)->get())->toBe('issued-token');
 
@@ -38,13 +39,13 @@ it('shows the API error and keeps the customer signed out on bad credentials', f
         'errors' => ['email' => ['Those credentials do not match our records.']],
     ], 422)]);
 
-    Livewire::test('pages::auth.welcome')
-        ->set('email', 'john@example.com')
-        ->set('password', 'wrong-password')
-        ->call('signIn')
+    Native::test(Welcome::class)
+        ->input('email', 'john@example.com')
+        ->input('password', 'wrong-password')
+        ->press('signIn')
         ->assertSee('Those credentials do not match our records.')
         ->assertSet('password', '')
-        ->assertNoRedirect();
+        ->assertNoNavigation();
 
     expect(app(TokenStore::class)->has())->toBeFalse();
 });
@@ -52,11 +53,12 @@ it('shows the API error and keeps the customer signed out on bad credentials', f
 it('validates before calling the API', function () {
     Http::fake();
 
-    Livewire::test('pages::auth.welcome')
-        ->set('email', 'not-an-email')
-        ->set('password', '')
-        ->call('signIn')
-        ->assertHasErrors(['email', 'password']);
+    Native::test(Welcome::class)
+        ->input('email', 'not-an-email')
+        ->press('signIn')
+        ->assertSee('The email field must be a valid email address.')
+        ->assertSee('The password field is required.')
+        ->assertNoNavigation();
 
     Http::assertNothingSent();
 });
@@ -64,12 +66,22 @@ it('validates before calling the API', function () {
 it('reports an unreachable API without signing in', function () {
     Http::fake(fn () => throw new ConnectionException('refused'));
 
-    Livewire::test('pages::auth.welcome')
-        ->set('email', 'john@example.com')
-        ->set('password', 'secret-password')
-        ->call('signIn')
+    Native::test(Welcome::class)
+        ->input('email', 'john@example.com')
+        ->input('password', 'secret-password')
+        ->press('signIn')
         ->assertSee("Can't reach StyleHub right now.")
-        ->assertNoRedirect();
+        ->assertNoNavigation();
 
     expect(app(TokenStore::class)->has())->toBeFalse();
+});
+
+it('navigates to the OTP and register screens', function () {
+    Native::test(Welcome::class)
+        ->press('goToOtp')
+        ->assertNavigatedTo('/sign-in-with-code');
+
+    Native::test(Welcome::class)
+        ->press('goToRegister')
+        ->assertNavigatedTo('/register');
 });

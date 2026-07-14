@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use Native\Mobile\Providers\DeviceServiceProvider;
 use Native\Mobile\Providers\DialogServiceProvider;
 use Native\Mobile\Providers\SecureStorageServiceProvider;
+use Nativephp\NativeUi\NativeUIServiceProvider;
 
 class NativeServiceProvider extends ServiceProvider
 {
@@ -40,6 +41,7 @@ class NativeServiceProvider extends ServiceProvider
             SecureStorageServiceProvider::class,
             DialogServiceProvider::class,
             DeviceServiceProvider::class,
+            NativeUIServiceProvider::class,
         ];
     }
 }
