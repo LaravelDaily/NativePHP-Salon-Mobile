@@ -6,7 +6,9 @@ use App\NativeComponents\Appointments;
 use App\NativeComponents\Auth\Otp;
 use App\NativeComponents\Auth\Register;
 use App\NativeComponents\Auth\Welcome;
+use App\NativeComponents\Book;
 use App\NativeComponents\Home;
+use App\NativeComponents\Layouts\SalonStackLayout;
 use App\NativeComponents\Layouts\SalonTabsLayout;
 use Illuminate\Support\Facades\Route;
 
@@ -20,12 +22,14 @@ Route::middleware(RequireCustomer::class)->group(function (): void {
     Route::nativeGroup(SalonTabsLayout::class, function (): void {
         Route::native('/', Home::class)->name('home');
         Route::native('/appointments', Appointments::class)->name('appointments');
+        Route::native('/book', Book::class)->name('book');
     });
-    Route::livewire('/book', 'pages::book')->name('book');
 
     // The booking screen doubles as the reschedule screen: same slot picker,
-    // prefilled from the appointment being moved.
-    Route::livewire('/appointments/{appointment}/reschedule', 'pages::book')
+    // prefilled from the appointment being moved. Pushed on top of the tabs,
+    // so it gets the stack chrome with a back chevron.
+    Route::native('/appointments/{appointment}/reschedule', Book::class)
+        ->layout(SalonStackLayout::class)
         ->name('appointments.reschedule');
     Route::livewire('/profile', 'pages::profile')->name('profile');
     Route::livewire('/profile/stylists', 'pages::stylists')->name('profile.stylists');

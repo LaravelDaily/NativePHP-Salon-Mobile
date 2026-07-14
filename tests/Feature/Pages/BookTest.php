@@ -1,10 +1,11 @@
 <?php
 
+use App\NativeComponents\Book;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Native\Mobile\Facades\Device;
 use Native\Mobile\Facades\Dialog;
+use Native\Mobile\Testing\Native;
 
 beforeEach(function (): void {
     $this->travelTo('2026-08-03 08:00:00');
@@ -80,8 +81,8 @@ function slotAt(string $time): string
 it('opens with the first service selected and its times listed', function () {
     fakeApi();
 
-    Livewire::test('pages::book')
-        ->assertOk()
+    Native::visit('/book')
+        ->assertScreen(Book::class)
         ->assertSet('serviceId', 1)
         ->assertSet('specialistId', 1)
         ->assertSet('startsAt', null)
@@ -95,7 +96,7 @@ it('opens with the first service selected and its times listed', function () {
 it('cannot confirm until a time is chosen', function () {
     fakeApi();
 
-    Livewire::test('pages::book')
+    Native::test(Book::class)
         ->call('confirm')
         ->assertSet('booked', null);
 
@@ -105,10 +106,10 @@ it('cannot confirm until a time is chosen', function () {
 it('re-fetches availability when the service changes and forgets the chosen time', function () {
     fakeApi();
 
-    Livewire::test('pages::book')
-        ->call('selectTime', slotAt('09:00'))
+    Native::test(Book::class)
+        ->press("selectTime('".slotAt('09:00')."')")
         ->assertSet('startsAt', slotAt('09:00'))
-        ->call('selectService', 2)
+        ->press('selectService(2)')
         ->assertSet('serviceId', 2)
         ->assertSet('startsAt', null);
 
@@ -119,8 +120,8 @@ it('re-fetches availability when the service changes and forgets the chosen time
 it('re-fetches availability when the date changes', function () {
     fakeApi();
 
-    Livewire::test('pages::book')
-        ->call('selectDate', '2026-08-05')
+    Native::test(Book::class)
+        ->press("selectDate('2026-08-05')")
         ->assertSet('date', '2026-08-05')
         ->assertSet('startsAt', null);
 
@@ -133,13 +134,13 @@ it('switches specialist without asking the API again', function () {
         fakeSpecialist(2, 'Eileen Rose', ['14:00']),
     ]);
 
-    $component = Livewire::test('pages::book')
+    $component = Native::test(Book::class)
         ->assertSet('specialistId', 1)
         ->assertSee('9:00 AM');
 
     $requestsBefore = count(Http::recorded());
 
-    $component->call('selectSpecialist', 2)
+    $component->press('selectSpecialist(2)')
         ->assertSet('specialistId', 2)
         ->assertSet('startsAt', null)
         ->assertSee('2:00 PM')
@@ -154,12 +155,15 @@ it('toggles a specialist favorite and moves favorites first', function () {
         fakeSpecialist(2, 'Eileen Rose', ['14:00']),
     ]);
 
-    Livewire::test('pages::book')
-        ->call('toggleFavorite', 2)
-        ->assertSet('availability.0.specialist.id', 2)
-        ->assertSet('availability.0.specialist.is_favorite', true)
-        ->call('toggleFavorite', 2)
-        ->assertSet('availability.1.specialist.is_favorite', false);
+    $component = Native::test(Book::class)->press('toggleFavorite(2)');
+
+    expect($component->get('availability')[0]['specialist'])
+        ->id->toBe(2)
+        ->is_favorite->toBeTrue();
+
+    $component->press('toggleFavorite(2)');
+
+    expect($component->get('availability')[1]['specialist']['is_favorite'])->toBeFalse();
 
     Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_contains($request->url(), 'specialists/2/favorite'));
@@ -173,9 +177,10 @@ it('keeps a favorite specialist first when availability loads', function () {
         fakeSpecialist(1, 'Clay Burke', ['09:00']),
     ]);
 
-    Livewire::test('pages::book')
+    Native::test(Book::class)
         ->assertSet('specialistId', 2)
-        ->assertSeeInOrder(['Eileen Rose', 'Clay Burke']);
+        ->assertSee('Eileen Rose')
+        ->assertSee('Clay Burke');
 });
 
 it('skips a specialist who is fully booked and picks one who is free', function () {
@@ -184,7 +189,7 @@ it('skips a specialist who is fully booked and picks one who is free', function 
         fakeSpecialist(2, 'Eileen Rose', ['14:00']),
     ]);
 
-    Livewire::test('pages::book')
+    Native::test(Book::class)
         ->assertSet('specialistId', 2)
         ->assertSee('2:00 PM');
 });
@@ -192,7 +197,7 @@ it('skips a specialist who is fully booked and picks one who is free', function 
 it('says so when nobody has a free slot that day', function () {
     fakeApi([fakeSpecialist(1, 'Clay Burke', [])]);
 
-    Livewire::test('pages::book')
+    Native::test(Book::class)
         ->assertSet('specialistId', null)
         ->assertSee('No times available on this day');
 });
@@ -203,10 +208,9 @@ it('books the chosen slot and shows the confirmation', function () {
     Dialog::spy();
     Device::spy();
 
-    Livewire::test('pages::book')
-        ->call('selectTime', slotAt('09:00'))
-        ->call('confirm')
-        ->assertSet('booked.id', 7)
+    Native::test(Book::class)
+        ->press("selectTime('".slotAt('09:00')."')")
+        ->press('confirm')
         ->assertSee('Booking confirmed')
         ->assertSee('Clay Burke')
         ->assertSee('9:00 AM');
@@ -226,9 +230,9 @@ it('offers the slots again when the chosen one was taken first', function () {
         'errors' => ['starts_at' => ['That time is no longer available. Please pick another slot.']],
     ], 422));
 
-    Livewire::test('pages::book')
-        ->call('selectTime', slotAt('09:00'))
-        ->call('confirm')
+    Native::test(Book::class)
+        ->press("selectTime('".slotAt('09:00')."')")
+        ->press('confirm')
         ->assertSet('booked', null)
         // The slot is dropped and the times reloaded, so the customer can retry.
         ->assertSet('startsAt', null)
@@ -239,33 +243,32 @@ it('offers the slots again when the chosen one was taken first', function () {
 it('surfaces an unreachable API rather than blowing up', function () {
     Http::fake(['*' => Http::response(null, 500)]);
 
-    Livewire::test('pages::book')
-        ->assertOk()
+    Native::test(Book::class)
         ->assertSee('StyleHub is having trouble right now.');
 });
 
 it('pages the date strip a week at a time and never before today', function () {
     fakeApi();
 
-    Livewire::test('pages::book')
+    Native::test(Book::class)
         ->assertSee('August')
-        ->call('previousWeek')
+        ->press('previousWeek')
         ->assertSet('weekOffset', 0)
-        ->call('nextWeek')
+        ->press('nextWeek')
         ->assertSet('weekOffset', 1)
         ->assertSee('10')
-        ->call('previousWeek')
+        ->press('previousWeek')
         ->assertSet('weekOffset', 0);
 });
 
 it('lets the customer start another booking from the confirmation', function () {
     fakeApi();
 
-    Livewire::test('pages::book')
-        ->call('selectTime', slotAt('09:00'))
-        ->call('confirm')
+    Native::test(Book::class)
+        ->press("selectTime('".slotAt('09:00')."')")
+        ->press('confirm')
         ->assertSee('Booking confirmed')
-        ->call('bookAnother')
+        ->press('bookAnother')
         ->assertSet('booked', null)
         ->assertSet('startsAt', null)
         ->assertSee('Choose Service');

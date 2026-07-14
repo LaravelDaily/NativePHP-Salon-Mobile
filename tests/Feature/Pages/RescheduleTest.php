@@ -1,8 +1,9 @@
 <?php
 
+use App\NativeComponents\Book;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Native\Mobile\Testing\Native;
 
 beforeEach(function (): void {
     $this->travelTo('2026-08-03 08:00:00');
@@ -70,14 +71,15 @@ function fakeRescheduleApi(mixed $patch = null): void
 it('opens prefilled with the appointment being moved', function () {
     fakeRescheduleApi();
 
-    Livewire::test('pages::book', ['appointment' => '42'])
-        ->assertOk()
+    Native::visit('/appointments/42/reschedule')
+        ->assertScreen(Book::class)
         ->assertSet('serviceId', 1)
         ->assertSet('specialistId', 1)
         ->assertSet('date', '2026-08-03')
         ->assertSet('startsAt', null)
+        ->assertNavTitle('Reschedule')
         ->assertSee('Pick a new time')
-        ->assertSee('Rescheduling')
+        ->assertSee('RESCHEDULING')
         ->assertSee('Currently Mon, 3 Aug 2026 at 11:00 AM')
         ->assertSee('Confirm New Time')
         // The service is fixed: no catalog to pick from.
@@ -87,7 +89,7 @@ it('opens prefilled with the appointment being moved', function () {
 it('asks the API to ignore the appointment being moved', function () {
     fakeRescheduleApi();
 
-    Livewire::test('pages::book', ['appointment' => '42']);
+    Native::visit('/appointments/42/reschedule');
 
     Http::assertSent(fn ($request): bool => str_contains($request->url(), 'availability')
         && str_contains($request->url(), 'exclude_appointment_id=42'));
@@ -97,7 +99,7 @@ it('offers the time the appointment already holds', function () {
     fakeRescheduleApi();
 
     // 11:00 is its own slot, freed by the exclusion, so it can stay put or move.
-    Livewire::test('pages::book', ['appointment' => '42'])
+    Native::visit('/appointments/42/reschedule')
         ->assertSee('11:00 AM')
         ->assertSee('2:00 PM');
 });
@@ -105,9 +107,9 @@ it('offers the time the appointment already holds', function () {
 it('moves the appointment to the chosen time', function () {
     fakeRescheduleApi();
 
-    Livewire::test('pages::book', ['appointment' => '42'])
-        ->call('selectTime', CarbonImmutable::parse('2026-08-03 14:00')->toIso8601String())
-        ->call('confirm')
+    Native::visit('/appointments/42/reschedule')
+        ->press("selectTime('".CarbonImmutable::parse('2026-08-03 14:00')->toIso8601String()."')")
+        ->press('confirm')
         ->assertSee('Appointment moved')
         ->assertSee('2:00 PM')
         // Rescheduling is a one-shot errand: no "book another" here.
@@ -125,9 +127,9 @@ it('explains when the appointment can no longer be moved', function () {
         'errors' => ['status' => ['Appointments can no longer be changed less than 2 hours before they start. Please call the salon.']],
     ], 422));
 
-    Livewire::test('pages::book', ['appointment' => '42'])
-        ->call('selectTime', CarbonImmutable::parse('2026-08-03 14:00')->toIso8601String())
-        ->call('confirm')
+    Native::visit('/appointments/42/reschedule')
+        ->press("selectTime('".CarbonImmutable::parse('2026-08-03 14:00')->toIso8601String()."')")
+        ->press('confirm')
         ->assertSet('booked', null)
         ->assertSee('less than 2 hours before they start');
 });
@@ -138,9 +140,9 @@ it('offers the slots again when the new time was taken first', function () {
         'errors' => ['starts_at' => ['That time is no longer available. Please pick another slot.']],
     ], 422));
 
-    Livewire::test('pages::book', ['appointment' => '42'])
-        ->call('selectTime', CarbonImmutable::parse('2026-08-03 14:00')->toIso8601String())
-        ->call('confirm')
+    Native::visit('/appointments/42/reschedule')
+        ->press("selectTime('".CarbonImmutable::parse('2026-08-03 14:00')->toIso8601String()."')")
+        ->press('confirm')
         ->assertSet('booked', null)
         ->assertSet('startsAt', null)
         ->assertSee('That time is no longer available. Please pick another slot.')
