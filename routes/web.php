@@ -11,6 +11,7 @@ use App\NativeComponents\Home;
 use App\NativeComponents\Layouts\SalonStackLayout;
 use App\NativeComponents\Layouts\SalonTabsLayout;
 use App\NativeComponents\Profile;
+use App\NativeComponents\Settings;
 use App\NativeComponents\Stylists;
 use Illuminate\Support\Facades\Route;
 
@@ -37,7 +38,9 @@ Route::middleware(RequireCustomer::class)->group(function (): void {
     Route::native('/profile/stylists', Stylists::class)
         ->layout(SalonStackLayout::class)
         ->name('profile.stylists');
-    Route::livewire('/settings', 'pages::settings')->name('settings');
+    Route::native('/settings', Settings::class)
+        ->layout(SalonStackLayout::class)
+        ->name('settings');
     Route::livewire('/appointments/{appointment}/feedback', 'pages::feedback')
         ->name('appointments.feedback');
 });
