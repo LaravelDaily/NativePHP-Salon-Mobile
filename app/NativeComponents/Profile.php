@@ -13,7 +13,7 @@ class Profile extends NativeComponent
 {
     use HandlesApiErrors;
 
-    /** @var array{id: int, name: string, email?: string|null, phone?: string|null, ...}|null */
+    /** @var array<string, mixed>|null */
     public ?array $user = null;
 
     /** @var array<int, array{id: int, name: string, photo_url: string|null, ...}> */

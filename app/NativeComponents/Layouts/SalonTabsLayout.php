@@ -30,11 +30,11 @@ class SalonTabsLayout extends NativeLayout
 
     public function navBar(NativeComponent $screen): ?NavBar
     {
-        if (! method_exists($screen, 'navTitle')) {
-            return null;
-        }
+        // Home leaves navTitle() at its empty default: no bar, the screen
+        // draws its own welcome header.
+        $title = $screen->navTitle();
 
-        return NavBar::make()->title($screen->navTitle());
+        return $title === '' ? null : NavBar::make()->title($title);
     }
 
     public function tabBar(NativeComponent $screen): ?TabBar

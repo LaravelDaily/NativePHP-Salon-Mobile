@@ -3,8 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Native\Mobile\Providers\DeviceServiceProvider;
-use Native\Mobile\Providers\DialogServiceProvider;
 use Native\Mobile\Providers\SecureStorageServiceProvider;
 use Nativephp\NativeUi\NativeUIServiceProvider;
 
@@ -37,10 +35,10 @@ class NativeServiceProvider extends ServiceProvider
      */
     public function plugins(): array
     {
+        // Dialog and Device need no plugin entries any more: v4 folds them
+        // into core, and their facades work without a registered provider.
         return [
             SecureStorageServiceProvider::class,
-            DialogServiceProvider::class,
-            DeviceServiceProvider::class,
             NativeUIServiceProvider::class,
         ];
     }

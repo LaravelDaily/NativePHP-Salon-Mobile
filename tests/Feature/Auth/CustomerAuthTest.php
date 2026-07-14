@@ -2,10 +2,11 @@
 
 use App\Contracts\TokenStore;
 use App\Exceptions\ApiException;
+use App\NativeComponents\Profile;
 use App\Services\CustomerAuth;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Native\Mobile\Testing\Native;
 
 beforeEach(function () {
     $this->tokens = app(TokenStore::class);
@@ -90,14 +91,16 @@ it('still forgets the token locally when the API cannot be reached', function ()
 it('signs out from the profile screen and returns to welcome', function () {
     Http::fake([
         '*/api/v1/me' => Http::response(['data' => ['id' => 1, 'name' => 'John Doe', 'email' => 'john@example.com']]),
+        '*/api/v1/me/stylists' => Http::response(['data' => []]),
+        '*/api/v1/salon' => Http::response(['data' => ['average_rating' => null, 'feedback_count' => 0]]),
         '*/api/v1/auth/logout' => Http::response(['message' => 'Signed out.']),
     ]);
     $this->tokens->put('issued-token');
 
-    Livewire::test('pages::profile')
+    Native::test(Profile::class)
         ->assertSee('John Doe')
-        ->call('signOut')
-        ->assertRedirect(route('auth.welcome'));
+        ->press('signOut')
+        ->assertReplacedWith('/welcome');
 
     expect($this->tokens->has())->toBeFalse();
 });

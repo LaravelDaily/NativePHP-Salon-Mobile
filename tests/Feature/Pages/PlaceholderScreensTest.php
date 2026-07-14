@@ -1,7 +1,10 @@
 <?php
 
+use App\NativeComponents\Appointments;
+use App\NativeComponents\Book;
+use App\NativeComponents\Profile;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Native\Mobile\Testing\Native;
 
 /*
  * Neither of these screens is a placeholder any more — they are covered in depth
@@ -10,11 +13,14 @@ use Livewire\Livewire;
  * screen reaches for the real one.
  */
 
+beforeEach(function (): void {
+    signIn();
+});
+
 it('renders the appointments screen', function () {
     Http::fake(['*' => Http::response(['data' => []])]);
 
-    Livewire::test('pages::appointments')
-        ->assertOk()
+    Native::test(Appointments::class)
         ->assertSee('Upcoming Appointments')
         ->assertSee('You have no upcoming appointments.');
 });
@@ -22,21 +28,21 @@ it('renders the appointments screen', function () {
 it('renders the booking screen', function () {
     Http::fake(['*' => Http::response(['data' => []])]);
 
-    Livewire::test('pages::book')
-        ->assertOk()
+    Native::test(Book::class)
         ->assertSee('New Appointment');
 });
 
 it('renders the profile screen with the menu from the mockups', function () {
-    Livewire::test('pages::profile')
-        ->assertOk()
+    Http::fake(['*' => Http::response(['data' => []])]);
+
+    Native::test(Profile::class)
         ->assertSee('My Stylists')
         ->assertSee('Booking History')
         ->assertSee('Salon Feedback')
         ->assertSee('App Settings');
 });
 
-it('serves each tab route with its component', function (string $route, string $component) {
+it('serves each tab route with its screen', function (string $route, string $screen) {
     Http::fake([
         '*/api/v1/me' => Http::response(['data' => ['id' => 1, 'name' => 'John Doe']]),
         // Unmatched URLs would otherwise be sent for real, and the booking screen
@@ -44,12 +50,15 @@ it('serves each tab route with its component', function (string $route, string $
         '*' => Http::response(['data' => []]),
     ]);
 
+    // The HTTP entry answers with a stub for native routes under test;
+    // the native harness mounts the same route to prove the screen renders.
     $this->withSession(customerSession())
         ->get(route($route))
-        ->assertOk()
-        ->assertSeeLivewire($component);
+        ->assertOk();
+
+    Native::visit(route($route, absolute: false))->assertScreen($screen);
 })->with([
-    ['appointments', 'pages::appointments'],
-    ['book', 'pages::book'],
-    ['profile', 'pages::profile'],
+    ['appointments', Appointments::class],
+    ['book', Book::class],
+    ['profile', Profile::class],
 ]);

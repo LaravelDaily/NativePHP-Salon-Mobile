@@ -23,6 +23,6 @@ class SalonStackLayout extends NativeLayout
     {
         return NavBar::make()
             ->back()
-            ->title(method_exists($screen, 'navTitle') ? $screen->navTitle() : null);
+            ->title($screen->navTitle());
     }
 }
