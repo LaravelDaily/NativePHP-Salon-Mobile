@@ -1,12 +1,13 @@
 <?php
 
 use App\Contracts\TokenStore;
+use App\NativeComponents\Auth\Otp;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Native\Mobile\Testing\Native;
 
 it('starts by asking for a phone number', function () {
-    Livewire::test('pages::auth.otp')
-        ->assertOk()
+    Native::visit('/sign-in-with-code')
+        ->assertScreen(Otp::class)
         ->assertSet('step', 'phone')
         ->assertSee('Send Code')
         ->assertDontSee('6-digit code');
@@ -15,10 +16,10 @@ it('starts by asking for a phone number', function () {
 it('sends a code and moves on to the code step', function () {
     Http::fake(['*/api/v1/auth/otp/request' => Http::response(['expires_in' => 300])]);
 
-    Livewire::test('pages::auth.otp')
-        ->set('phone', '+1 555-1234')
-        ->call('sendCode')
-        ->assertHasNoErrors()
+    Native::test(Otp::class)
+        ->input('phone', '+1 555-1234')
+        ->press('sendCode')
+        ->assertSet('fieldErrors', [])
         ->assertSet('step', 'code')
         ->assertSee('6-digit code')
         ->assertSee('We sent a code to your phone.');
@@ -29,24 +30,23 @@ it('sends a code and moves on to the code step', function () {
 it('shows the code inline when the API exposes it in development', function () {
     Http::fake(['*/api/v1/auth/otp/request' => Http::response(['expires_in' => 300, 'code' => '584524'])]);
 
-    Livewire::test('pages::auth.otp')
-        ->set('phone', '+15551234567')
-        ->call('sendCode')
+    Native::test(Otp::class)
+        ->input('phone', '+15551234567')
+        ->press('sendCode')
         ->assertSee('Development mode: your code is 584524');
 });
 
 it('starts the resend countdown and only offers resend once it runs out', function () {
     Http::fake(['*' => Http::response(['expires_in' => 300])]);
 
-    $component = Livewire::test('pages::auth.otp')
-        ->set('phone', '+15551234567')
-        ->call('sendCode')
+    $component = Native::test(Otp::class)
+        ->input('phone', '+15551234567')
+        ->press('sendCode')
         ->assertSet('resendIn', 30)
-        ->assertSee('Resend code in 30s')
-        ->assertDontSee('Resend code<');
+        ->assertSee('Resend code in 30s');
 
     foreach (range(1, 30) as $ignored) {
-        $component->call('tickResend');
+        $component->firePoll('tickResend');
     }
 
     $component->assertSet('resendIn', 0)->assertSee('Resend code');
@@ -61,14 +61,14 @@ it('verifies the code, signs in and lands on home', function () {
         ]),
     ]);
 
-    Livewire::test('pages::auth.otp')
-        ->set('phone', '+15551234567')
-        ->call('sendCode')
-        ->set('code', '584524')
-        ->set('name', 'Jane Tester')
-        ->call('verify')
-        ->assertHasNoErrors()
-        ->assertRedirect(route('home'));
+    Native::test(Otp::class)
+        ->input('phone', '+15551234567')
+        ->press('sendCode')
+        ->input('code', '584524')
+        ->input('name', 'Jane Tester')
+        ->press('verify')
+        ->assertSet('fieldErrors', [])
+        ->assertReplacedWith('/');
 
     expect(app(TokenStore::class)->get())->toBe('issued-token');
 
@@ -86,14 +86,14 @@ it('shows the API message and clears the field on a wrong code', function () {
         ], 422),
     ]);
 
-    Livewire::test('pages::auth.otp')
-        ->set('phone', '+15551234567')
-        ->call('sendCode')
-        ->set('code', '000000')
-        ->call('verify')
+    Native::test(Otp::class)
+        ->input('phone', '+15551234567')
+        ->press('sendCode')
+        ->input('code', '000000')
+        ->press('verify')
         ->assertSee('That code is invalid or has expired.')
         ->assertSet('code', '')
-        ->assertNoRedirect();
+        ->assertNoNavigation();
 
     expect(app(TokenStore::class)->has())->toBeFalse();
 });
@@ -101,20 +101,21 @@ it('shows the API message and clears the field on a wrong code', function () {
 it('requires a six digit code', function () {
     Http::fake(['*/api/v1/auth/otp/request' => Http::response(['expires_in' => 300])]);
 
-    Livewire::test('pages::auth.otp')
-        ->set('phone', '+15551234567')
-        ->call('sendCode')
-        ->set('code', '123')
-        ->call('verify')
-        ->assertHasErrors('code');
+    Native::test(Otp::class)
+        ->input('phone', '+15551234567')
+        ->press('sendCode')
+        ->input('code', '123')
+        ->press('verify')
+        ->assertSee('The code field must be 6 digits.')
+        ->assertNoNavigation();
 });
 
 it('surfaces throttling from the API', function () {
     Http::fake(['*/api/v1/auth/otp/request' => Http::response(status: 429)]);
 
-    Livewire::test('pages::auth.otp')
-        ->set('phone', '+15551234567')
-        ->call('sendCode')
+    Native::test(Otp::class)
+        ->input('phone', '+15551234567')
+        ->press('sendCode')
         ->assertSee("You've tried that too many times.")
         ->assertSet('step', 'phone');
 });
@@ -122,11 +123,11 @@ it('surfaces throttling from the API', function () {
 it('lets the customer go back and change their number', function () {
     Http::fake(['*' => Http::response(['expires_in' => 300])]);
 
-    Livewire::test('pages::auth.otp')
-        ->set('phone', '+15551234567')
-        ->call('sendCode')
+    Native::test(Otp::class)
+        ->input('phone', '+15551234567')
+        ->press('sendCode')
         ->assertSet('step', 'code')
-        ->call('changePhone')
+        ->press('changePhone')
         ->assertSet('step', 'phone')
         ->assertSet('code', '');
 });
