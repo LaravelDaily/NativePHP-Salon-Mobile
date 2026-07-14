@@ -14,10 +14,9 @@
         "laravel/tinker": "^3.0",
         "livewire/blaze": "^1.0",
         "livewire/livewire": "^4.1",
-        "nativephp/mobile": "^3.3",
-        "nativephp/mobile-device": "^1.0",
-        "nativephp/mobile-dialog": "^1.0",
-        "nativephp/mobile-secure-storage": "^1.0"
+        "nativephp/mobile": "dev-element as 3.99.0",
+        "nativephp/mobile-secure-storage": "^1.0",
+        "nativephp/native-ui": "dev-main"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
@@ -112,9 +111,16 @@
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
-    "repositories": [{
-        "name": "nativephp-plugins",
-        "type": "composer",
-        "url": "https://plugins.nativephp.com"
-    }]
+    "repositories": [
+        {
+            "name": "nativephp-plugins",
+            "type": "composer",
+            "url": "https://plugins.nativephp.com"
+        },
+        {
+            "name": "nativephp-native-ui",
+            "type": "vcs",
+            "url": "https://github.com/nativephp/native-ui"
+        }
+    ]
 }
