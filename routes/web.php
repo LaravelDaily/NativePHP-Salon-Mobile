@@ -7,6 +7,7 @@ use App\NativeComponents\Auth\Otp;
 use App\NativeComponents\Auth\Register;
 use App\NativeComponents\Auth\Welcome;
 use App\NativeComponents\Book;
+use App\NativeComponents\Feedback;
 use App\NativeComponents\Home;
 use App\NativeComponents\Layouts\SalonStackLayout;
 use App\NativeComponents\Layouts\SalonTabsLayout;
@@ -41,6 +42,7 @@ Route::middleware(RequireCustomer::class)->group(function (): void {
     Route::native('/settings', Settings::class)
         ->layout(SalonStackLayout::class)
         ->name('settings');
-    Route::livewire('/appointments/{appointment}/feedback', 'pages::feedback')
+    Route::native('/appointments/{appointment}/feedback', Feedback::class)
+        ->layout(SalonStackLayout::class)
         ->name('appointments.feedback');
 });

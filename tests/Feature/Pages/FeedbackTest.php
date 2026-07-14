@@ -1,7 +1,8 @@
 <?php
 
+use App\NativeComponents\Feedback;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Native\Mobile\Testing\Native;
 
 beforeEach(function (): void {
     signIn();
@@ -21,8 +22,9 @@ function reviewableAppointment(): array
 it('renders the rating form for a completed appointment', function () {
     Http::fake(['*/api/v1/appointments/7' => Http::response(['data' => reviewableAppointment()])]);
 
-    Livewire::test('pages::feedback', ['appointment' => '7'])
-        ->assertOk()
+    Native::visit('/appointments/7/feedback')
+        ->assertScreen(Feedback::class)
+        ->assertNavTitle('Salon Feedback')
         ->assertSee('How was your visit?')
         ->assertSee("Men's Precision Cut")
         ->assertSee('Clay Burke')
@@ -32,9 +34,9 @@ it('renders the rating form for a completed appointment', function () {
 it('requires a star rating', function () {
     Http::fake(['*/api/v1/appointments/7' => Http::response(['data' => reviewableAppointment()])]);
 
-    Livewire::test('pages::feedback', ['appointment' => '7'])
-        ->call('submit')
-        ->assertHasErrors('rating');
+    Native::visit('/appointments/7/feedback')
+        ->press('submit')
+        ->assertSee('Choose a rating from one to five stars.');
 
     Http::assertNotSent(fn ($request): bool => $request->method() === 'POST');
 });
@@ -49,10 +51,10 @@ it('submits a rating and optional comment', function () {
         ]], 201),
     ]);
 
-    Livewire::test('pages::feedback', ['appointment' => '7'])
-        ->set('rating', 5)
-        ->set('comment', 'Excellent work.')
-        ->call('submit')
+    Native::visit('/appointments/7/feedback')
+        ->press('rate(5)')
+        ->input('comment', 'Excellent work.')
+        ->press('submit')
         ->assertSet('submitted', true)
         ->assertSee('Thank you');
 
@@ -70,9 +72,9 @@ it('shows API feedback rule errors', function () {
         ], 422),
     ]);
 
-    Livewire::test('pages::feedback', ['appointment' => '7'])
-        ->set('rating', 4)
-        ->call('submit')
-        ->assertHasErrors('appointment')
+    Native::visit('/appointments/7/feedback')
+        ->press('rate(4)')
+        ->press('submit')
+        ->assertSet('fieldErrors', ['appointment' => 'This appointment has already been reviewed.'])
         ->assertSee('This appointment has already been reviewed.');
 });
