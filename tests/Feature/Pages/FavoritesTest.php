@@ -1,7 +1,9 @@
 <?php
 
+use App\NativeComponents\Profile;
+use App\NativeComponents\Stylists;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Native\Mobile\Testing\Native;
 
 beforeEach(function (): void {
     signIn();
@@ -23,8 +25,9 @@ function favoriteStylist(int $id = 1, string $name = 'Clay Burke'): array
 it('lists favorite stylists', function () {
     Http::fake(['*/api/v1/me/stylists' => Http::response(['data' => [favoriteStylist()]])]);
 
-    Livewire::test('pages::stylists')
-        ->assertOk()
+    Native::visit('/profile/stylists')
+        ->assertScreen(Stylists::class)
+        ->assertNavTitle('My Stylists')
         ->assertSee('Your favorites')
         ->assertSee('Clay Burke')
         ->assertSee('Senior Barber')
@@ -37,8 +40,8 @@ it('removes a stylist from favorites', function () {
         '*/api/v1/specialists/1/favorite' => Http::response(status: 204),
     ]);
 
-    Livewire::test('pages::stylists')
-        ->call('toggleFavorite', 1)
+    Native::test(Stylists::class)
+        ->press('toggleFavorite(1)')
         ->assertSet('stylists', [])
         ->assertSee('Clay Burke was removed from My Stylists.')
         ->assertSee('You have not favorited a stylist yet.');
@@ -53,7 +56,7 @@ it('shows favorite avatars and salon rating on profile', function () {
         '*/api/v1/salon' => Http::response(['data' => ['average_rating' => 4.7, 'feedback_count' => 86]]),
     ]);
 
-    Livewire::test('pages::profile')
+    Native::test(Profile::class)
         ->assertSee('John Doe')
         ->assertSee('1 saved')
         ->assertSee('4.7')
