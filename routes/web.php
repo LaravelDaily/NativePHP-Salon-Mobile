@@ -10,6 +10,7 @@ use App\NativeComponents\Book;
 use App\NativeComponents\Home;
 use App\NativeComponents\Layouts\SalonStackLayout;
 use App\NativeComponents\Layouts\SalonTabsLayout;
+use App\NativeComponents\Profile;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(RequireGuest::class)->group(function (): void {
@@ -23,6 +24,7 @@ Route::middleware(RequireCustomer::class)->group(function (): void {
         Route::native('/', Home::class)->name('home');
         Route::native('/appointments', Appointments::class)->name('appointments');
         Route::native('/book', Book::class)->name('book');
+        Route::native('/profile', Profile::class)->name('profile');
     });
 
     // The booking screen doubles as the reschedule screen: same slot picker,
@@ -31,7 +33,6 @@ Route::middleware(RequireCustomer::class)->group(function (): void {
     Route::native('/appointments/{appointment}/reschedule', Book::class)
         ->layout(SalonStackLayout::class)
         ->name('appointments.reschedule');
-    Route::livewire('/profile', 'pages::profile')->name('profile');
     Route::livewire('/profile/stylists', 'pages::stylists')->name('profile.stylists');
     Route::livewire('/settings', 'pages::settings')->name('settings');
     Route::livewire('/appointments/{appointment}/feedback', 'pages::feedback')
