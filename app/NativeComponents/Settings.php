@@ -6,11 +6,13 @@ use App\Exceptions\ApiException;
 use App\Services\ApiClient;
 use App\Services\CustomerAuth;
 use Illuminate\View\View;
+use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Attributes\OnNative;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Events\Alert\ButtonPressed;
 use Native\Mobile\Facades\Dialog;
 
+#[Lazy]
 class Settings extends NativeComponent
 {
     private const DELETE_DIALOG = 'delete-account';
@@ -108,6 +110,16 @@ class Settings extends NativeComponent
         app(CustomerAuth::class)->signOut();
 
         $this->replace('/welcome');
+    }
+
+    /**
+     * The frame painted the instant this screen is pushed, before mount()
+     * goes off to the API. It is the real screen with every value greyed
+     * out, so the data lands on shapes that are already in place.
+     */
+    protected function placeholder(): View
+    {
+        return view('native.skeleton.settings');
     }
 
     public function render(): View

@@ -5,8 +5,10 @@ namespace App\NativeComponents;
 use App\Exceptions\ApiException;
 use App\Services\ApiClient;
 use Illuminate\View\View;
+use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\NativeComponent;
 
+#[Lazy]
 class Stylists extends NativeComponent
 {
     /** @var array<int, array{id: int, name: string, title: string|null, photo_url: string|null, average_rating: float|int|null, feedback_count: int, is_favorite: bool, ...}> */
@@ -67,6 +69,16 @@ class Stylists extends NativeComponent
     public function goToBook(): void
     {
         $this->navigate('/book');
+    }
+
+    /**
+     * The frame painted the instant this screen is pushed, before mount()
+     * goes off to the API. It is the real screen with every value greyed
+     * out, so the data lands on shapes that are already in place.
+     */
+    protected function placeholder(): View
+    {
+        return view('native.skeleton.stylists');
     }
 
     public function render(): View

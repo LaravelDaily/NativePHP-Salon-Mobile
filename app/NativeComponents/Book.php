@@ -6,10 +6,12 @@ use App\Exceptions\ApiException;
 use App\Services\ApiClient;
 use Carbon\CarbonImmutable;
 use Illuminate\View\View;
+use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Facades\Device;
 use Native\Mobile\Facades\Dialog;
 
+#[Lazy]
 class Book extends NativeComponent
 {
     /** Days shown in the date strip at once, as in the mockup. */
@@ -64,7 +66,11 @@ class Book extends NativeComponent
 
     public function navTitle(): string
     {
-        return $this->rescheduling !== null ? 'Reschedule' : 'New Appointment';
+        // Keyed off the route param rather than $rescheduling: the placeholder
+        // frame draws its nav bar before mount() has fetched the appointment,
+        // and a title that flipped once the data landed would be worse than
+        // no skeleton at all.
+        return $this->param('appointment') !== null ? 'Reschedule' : 'New Appointment';
     }
 
     public function mount(): void
@@ -398,6 +404,16 @@ class Book extends NativeComponent
         }
 
         return CarbonImmutable::parse($this->startsAt)->format('g:i A');
+    }
+
+    /**
+     * The frame painted the instant this screen is pushed, before mount()
+     * goes off to the API. It is the real screen with every value greyed
+     * out, so the data lands on shapes that are already in place.
+     */
+    protected function placeholder(): View
+    {
+        return view('native.skeleton.book');
     }
 
     public function render(): View

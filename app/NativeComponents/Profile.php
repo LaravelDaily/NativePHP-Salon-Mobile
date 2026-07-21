@@ -7,8 +7,10 @@ use App\NativeComponents\Concerns\HandlesApiErrors;
 use App\Services\ApiClient;
 use App\Services\CustomerAuth;
 use Illuminate\View\View;
+use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\NativeComponent;
 
+#[Lazy]
 class Profile extends NativeComponent
 {
     use HandlesApiErrors;
@@ -164,6 +166,16 @@ class Profile extends NativeComponent
     public function goToSettings(): void
     {
         $this->navigate('/settings');
+    }
+
+    /**
+     * The frame painted the instant this screen is pushed, before mount()
+     * goes off to the API. It is the real screen with every value greyed
+     * out, so the data lands on shapes that are already in place.
+     */
+    protected function placeholder(): View
+    {
+        return view('native.skeleton.profile');
     }
 
     public function render(): View

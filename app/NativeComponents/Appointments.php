@@ -5,12 +5,14 @@ namespace App\NativeComponents;
 use App\Exceptions\ApiException;
 use App\Services\ApiClient;
 use Illuminate\View\View;
+use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Attributes\OnNative;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Events\Alert\ButtonPressed;
 use Native\Mobile\Facades\Device;
 use Native\Mobile\Facades\Dialog;
 
+#[Lazy]
 class Appointments extends NativeComponent
 {
     /** Correlates the native dialog's button press back to this screen. */
@@ -133,6 +135,16 @@ class Appointments extends NativeComponent
     public function goToBook(): void
     {
         $this->navigate('/book');
+    }
+
+    /**
+     * The frame painted the instant this screen is pushed, before mount()
+     * goes off to the API. It is the real screen with every value greyed
+     * out, so the data lands on shapes that are already in place.
+     */
+    protected function placeholder(): View
+    {
+        return view('native.skeleton.appointments');
     }
 
     public function render(): View

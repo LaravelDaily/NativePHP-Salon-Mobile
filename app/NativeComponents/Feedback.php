@@ -6,8 +6,10 @@ use App\Exceptions\ApiException;
 use App\NativeComponents\Concerns\HandlesApiErrors;
 use App\Services\ApiClient;
 use Illuminate\View\View;
+use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\NativeComponent;
 
+#[Lazy]
 class Feedback extends NativeComponent
 {
     use HandlesApiErrors;
@@ -86,6 +88,16 @@ class Feedback extends NativeComponent
     public function backToHistory(): void
     {
         $this->navigate('/appointments');
+    }
+
+    /**
+     * The frame painted the instant this screen is pushed, before mount()
+     * goes off to the API. It is the real screen with every value greyed
+     * out, so the data lands on shapes that are already in place.
+     */
+    protected function placeholder(): View
+    {
+        return view('native.skeleton.feedback');
     }
 
     public function render(): View

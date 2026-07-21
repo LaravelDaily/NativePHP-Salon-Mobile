@@ -5,8 +5,10 @@ namespace App\NativeComponents;
 use App\Exceptions\ApiException;
 use App\Services\ApiClient;
 use Illuminate\View\View;
+use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\NativeComponent;
 
+#[Lazy]
 class Home extends NativeComponent
 {
     /** @var array<string, mixed>|null */
@@ -64,6 +66,16 @@ class Home extends NativeComponent
         }
 
         $this->navigate("/appointments/{$this->pendingFeedback['id']}/feedback");
+    }
+
+    /**
+     * The frame painted the instant this screen is pushed, before mount()
+     * goes off to the API. It is the real screen with every value greyed
+     * out, so the data lands on shapes that are already in place.
+     */
+    protected function placeholder(): View
+    {
+        return view('native.skeleton.home');
     }
 
     public function render(): View
